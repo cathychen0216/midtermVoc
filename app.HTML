@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>高中英文月考單字記憶 App</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f5f9;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior-y: none;
+    }
+
+    /* 3D 單字卡翻轉效果 */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+    .transform-style-3d {
+      transform-style: preserve-3d;
+      transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+    .backface-hidden {
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    /* 隱藏橫向捲軸但保留滑動 */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    /* 柔和進場動畫 */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-fade-up {
+      animation: fadeSlideUp 0.25s ease-out forwards;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- 手機直式優先主容器（桌機版置中並呈現如 App 視窗） -->
+  <div class="max-w-[480px] mx-auto min-h-screen bg-slate-50 shadow-xl flex flex-col relative border-x border-slate-200/80">
+
+    <!-- 頂部導覽列與篩選器 -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 pt-3 pb-2.5 shadow-sm">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-500 text-white flex items-center justify-center font-extrabold text-sm shadow-sm">
+            En
+          </div>
+          <div>
+            <h1 class="text-base font-bold text-slate-900 leading-tight">高中英文月考衝刺</h1>
+            <p class="text-[11px] text-slate-500 font-medium">龍騰 L4–L6 ‧ 核單 U5–U9</p>
+          </div>
+        </div>
+
+        <!-- 全域星號收藏快速切換 -->
+        <button id="global-star-toggle" onclick="toggleStarFilter()"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-slate-100 text-slate-600 border-slate-200">
+          <span id="global-star-icon">☆</span>
+          <span>只看收藏</span>
+          <span id="star-count-badge" class="ml-0.5 px-1.5 py-0.2 bg-white rounded-full text-[10px] text-slate-700 shadow-xs">0</span>
+        </button>
+      </div>
+
+      <!-- 單元篩選列（在單字卡、測驗、列表分頁顯示） -->
+      <div id="unit-filter-bar" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5">
+        <button data-unit="ALL" onclick="setUnitFilter('ALL')" class="unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white shadow-xs transition">全部範圍</button>
+        <button data-unit="U5" onclick="setUnitFilter('U5')" class="unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">核單 U5</button>
+        <button data-unit="U6" onclick="setUnitFilter('U6')" class="unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">核單 U6</button>
+        <button data-unit="U7" onclick="setUnitFilter('U7')" class="unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">核單 U7</button>
+        <button data-unit="U8" onclick="setUnitFilter('U8')" class="unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">核單 U8</button>
+        <button data-unit="U9" onclick="setUnitFilter('U9')" class="unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition">核單 U9</button>
+      </div>
+    </header>
+
+    <!-- 提示訊息 Toast（取代 alert） -->
+    <div id="toast-box" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300">
+      <div id="toast-msg" class="bg-slate-900/90 text-white text-xs font-medium px-4 py-2 rounded-full shadow-lg backdrop-blur-sm">
+        提示訊息
+      </div>
+    </div>
+
+    <!-- 主內容區 -->
+    <main class="flex-1 px-4 pt-3 pb-24 overflow-y-auto">
+
+      <!-- ==================== 1. 單字卡模式 ==================== -->
+      <section id="view-flashcard" class="space-y-3 animate-fade-up">
+        <!-- 進度與操作列 -->
+        <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+          <span id="fc-counter" class="font-semibold text-slate-700">1 / 82</span>
+          <div class="flex items-center gap-2">
+            <button onclick="shuffleFlashcards()" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 active:scale-95 transition">
+              <span>🔀</span> 隨機洗牌
+            </button>
+            <button onclick="resetFlashcardOrder()" class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 active:scale-95 transition">
+              <span>↺</span> 依序
+            </button>
+          </div>
+        </div>
+
+        <!-- 進度條 -->
+        <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div id="fc-progress-bar" class="h-full bg-indigo-600 rounded-full transition-all duration-300" style="width: 1%;"></div>
+        </div>
+
+        <!-- 空狀態提示（收藏為空時） -->
+        <div id="fc-empty" class="hidden bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm my-6">
+          <div class="text-4xl mb-3">⭐</div>
+          <h3 class="text-base font-bold text-slate-800 mb-1">目前沒有收藏的單字</h3>
+          <p class="text-xs text-slate-500 mb-4">在單字卡或單字列表中點擊星號，即可將不熟的單字加入專屬複習清單！</p>
+          <button onclick="toggleStarFilter(false)" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-sm active:scale-95">
+            顯示全部單字
+          </button>
+        </div>
+
+        <!-- 3D 翻轉單字卡容器 -->
+        <div id="fc-card-wrapper" class="perspective-1000 w-full h-[380px] sm:h-[400px] my-1 select-none">
+          <div id="fc-card-inner" onclick="flipCard(event)" class="relative w-full h-full transform-style-3d cursor-pointer">
+
+            <!-- 卡片正面：英文單字 + 詞性 + 真人發音 -->
+            <div class="absolute inset-0 backface-hidden bg-white rounded-3xl border border-slate-200/90 shadow-md p-6 flex flex-col justify-between">
+              <div class="flex items-center justify-between">
+                <span id="fc-unit-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                  核單 U5
+                </span>
+                <button id="fc-star-btn" onclick="toggleCurrentCardStar(event)" class="w-10 h-10 rounded-full flex items-center justify-center text-2xl transition active:scale-90 bg-slate-50 hover:bg-amber-50">
+                  ☆
+                </button>
+              </div>
+
+              <div class="text-center my-auto px-2">
+                <span id="fc-pos" class="inline-block px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-bold tracking-wide mb-2">
+                  vt.
+                </span>
+                <h2 id="fc-word" class="text-4xl font-extrabold text-slate-900 tracking-tight break-words mb-5">
+                  tame
+                </h2>
+
+                <!-- 真人發音按鈕 -->
+                <button onclick="speakCurrentWord(event)" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-md shadow-indigo-200 active:scale-95 transition">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+                  </svg>
+                  <span>真人發音</span>
+                </button>
+              </div>
+
+              <div class="text-center text-xs text-slate-400 flex items-center justify-center gap-1">
+                <span>👆 點擊卡片翻面查看中文與例句</span>
+              </div>
+            </div>
+
+            <!-- 卡片背面：中文解釋 + 英文例句 + 中文翻譯 -->
+            <div class="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-b from-indigo-50/70 to-white rounded-3xl border border-indigo-200 shadow-md p-6 flex flex-col justify-between">
+              <div class="flex items-center justify-between border-b border-indigo-100 pb-3">
+                <div class="flex items-center gap-2">
+                  <span id="fc-back-word" class="text-lg font-extrabold text-indigo-950">tame</span>
+                  <span id="fc-back-pos" class="text-xs font-bold text-indigo-600 bg-indigo-100/80 px-2 py-0.5 rounded">vt.</span>
+                </div>
+                <button onclick="speakCurrentWord(event)" class="p-2 rounded-xl bg-indigo-100 text-indigo-700 hover:bg-indigo-200 active:scale-90 transition" title="朗讀單字">
+                  🔊
+                </button>
+              </div>
+
+              <div class="my-auto space-y-4 overflow-y-auto py-2">
+                <div>
+                  <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-500 mb-1">中文解釋</div>
+                  <p id="fc-meaning" class="text-xl font-bold text-slate-900 leading-snug">
+                    馴化；馴服；控制
+                  </p>
+                </div>
+
+                <div class="bg-white/90 rounded-2xl p-3.5 border border-indigo-100/80 shadow-xs space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-400">核心例句</span>
+                    <button onclick="speakCurrentSentence(event)" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-indigo-50 active:scale-95">
+                      <span>🔊</span> 朗讀例句
+                    </button>
+                  </div>
+                  <p id="fc-sentence" class="text-sm font-medium text-slate-800 leading-relaxed">
+                    Beauty tamed the wild Beast.
+                  </p>
+                  <p id="fc-translation" class="text-xs text-slate-500 leading-relaxed pt-1 border-t border-slate-100">
+                    美女馴服了野獸。
+                  </p>
+                </div>
+              </div>
+
+              <div class="text-center text-xs text-slate-400">
+                <span>👆 點擊卡片翻回正面</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 上一張 / 下一張 控制按鈕 -->
+        <div id="fc-nav-controls" class="grid grid-cols-2 gap-3 pt-1">
+          <button onclick="prevCard()" class="py-3.5 px-4 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold text-sm shadow-xs hover:bg-slate-50 active:scale-95 transition flex items-center justify-center gap-2">
+            <span>←</span> 上一個
+          </button>
+          <button onclick="nextCard()" class="py-3.5 px-4 rounded-2xl bg-slate-900 text-white font-bold text-sm shadow-sm hover:bg-slate-800 active:scale-95 transition flex items-center justify-center gap-2">
+            下一個 <span>→</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- ==================== 2. 四選一測驗模式 ==================== -->
+      <section id="view-quiz" class="hidden space-y-3 animate-fade-up">
+        <!-- 測驗子模式切換 -->
+        <div class="grid grid-cols-2 gap-1.5 bg-slate-200/80 p-1 rounded-2xl">
+          <button id="quiz-sub-vocab" onclick="setQuizMode('vocab')" class="py-2 px-3 rounded-xl text-xs font-bold bg-white text-indigo-700 shadow-xs transition">
+            核心單字中義測驗
+          </button>
+          <button id="quiz-sub-exam" onclick="setQuizMode('exam')" class="py-2 px-3 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition">
+            核單 U5–U9 考卷 (11-20題)
+          </button>
+        </div>
+
+        <!-- 計分板 -->
+        <div class="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-xl text-center">
+              <div class="text-[10px] font-bold">總得分</div>
+              <div id="quiz-score" class="text-base font-extrabold">0</div>
+            </div>
+            <div class="bg-amber-50 text-amber-700 px-3 py-1 rounded-xl text-center">
+              <div class="text-[10px] font-bold">連對</div>
+              <div id="quiz-streak" class="text-base font-extrabold">0 🔥</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="quiz-progress-label" class="text-xs font-bold text-slate-700">第 1 題</div>
+            <button onclick="resetQuizStats()" class="text-[11px] text-slate-400 underline hover:text-slate-600">重置分數</button>
+          </div>
+        </div>
+
+        <!-- 題目卡片 -->
+        <div id="quiz-card" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <span id="quiz-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700">
+              核單 U5
+            </span>
+            <button id="quiz-speak-btn" onclick="speakQuizPrompt()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg active:scale-95">
+              🔊 朗讀題目
+            </button>
+          </div>
+
+          <div id="quiz-question-area" class="py-1">
+            <p id="quiz-question-text" class="text-2xl font-extrabold text-slate-900 leading-snug">
+              tame
+            </p>
+            <p id="quiz-question-sub" class="text-xs text-slate-500 mt-1">
+              請選出最符合的中文解釋：
+            </p>
+          </div>
+
+          <!-- 四個選項 -->
+          <div id="quiz-options" class="space-y-2.5">
+            <!-- 動態產生選項按鈕 -->
+          </div>
+
+          <!-- 答題回饋與解析 -->
+          <div id="quiz-feedback" class="hidden rounded-2xl p-3.5 text-xs space-y-1.5 border">
+            <div id="quiz-feedback-title" class="font-extrabold text-sm"></div>
+            <p id="quiz-feedback-detail" class="text-slate-700 leading-relaxed"></p>
+          </div>
+
+          <button id="quiz-next-btn" onclick="generateNextQuiz()" class="hidden w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm active:scale-95 transition">
+            下一題 →
+          </button>
+        </div>
+      </section>
+
+      <!-- ==================== 3. 課本例句與片語填空 (L04-L06) ==================== -->
+      <section id="view-cloze" class="hidden space-y-3 animate-fade-up">
+        <!-- 課次與類型切換 -->
+        <div class="bg-white rounded-2xl p-3 border border-slate-200 shadow-xs space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">龍騰課本例句填空範圍</span>
+            <span id="cloze-counter" class="text-xs font-bold text-indigo-600">1 / 50</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5">
+            <button data-lesson="ALL" onclick="setClozeLesson('ALL')" class="cloze-lesson-btn py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white">全部 L4-6</button>
+            <button data-lesson="L04" onclick="setClozeLesson('L04')" class="cloze-lesson-btn py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600">第 4 課</button>
+            <button data-lesson="L05" onclick="setClozeLesson('L05')" class="cloze-lesson-btn py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600">第 5 課</button>
+            <button data-lesson="L06" onclick="setClozeLesson('L06')" class="cloze-lesson-btn py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600">第 6 課</button>
+          </div>
+          <div class="flex items-center gap-1.5 pt-0.5">
+            <button data-ctype="ALL" onclick="setClozeType('ALL')" class="cloze-type-btn flex-1 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-white">全部題型</button>
+            <button data-ctype="vocab" onclick="setClozeType('vocab')" class="cloze-type-btn flex-1 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600">文意字彙填空</button>
+            <button data-ctype="phrase" onclick="setClozeType('phrase')" class="cloze-type-btn flex-1 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600">片語翻譯填空</button>
+          </div>
+        </div>
+
+        <!-- 填空練習主卡片 -->
+        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span id="cloze-lesson-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700">L04</span>
+              <span id="cloze-type-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700">字彙填空</span>
+            </div>
+            <button onclick="speakClozeFullSentence()" class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg active:scale-95">
+              🔊 朗讀完整句
+            </button>
+          </div>
+
+          <!-- 中文提示（片語題顯示完整翻譯，字彙題顯示中文提示或字首尾提示） -->
+          <div id="cloze-zh-box" class="bg-slate-50 rounded-2xl p-3 border border-slate-200/70">
+            <div class="text-[10px] font-bold text-slate-400 mb-0.5">中文句意 / 提示</div>
+            <p id="cloze-zh-text" class="text-xs font-medium text-slate-700 leading-relaxed"></p>
+          </div>
+
+          <!-- 英文題幹 -->
+          <div class="py-1">
+            <p id="cloze-en-text" class="text-base font-semibold text-slate-900 leading-relaxed">
+              1. Kelly is very <span class="text-indigo-600 font-extrabold underline decoration-2 underline-offset-4">s______e</span> to flavors.
+            </p>
+          </div>
+
+          <!-- 輸入作答區 -->
+          <div class="space-y-2.5">
+            <input id="cloze-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+              placeholder="請輸入完整英文單字或片語..."
+              onkeydown="if(event.key==='Enter') checkClozeAnswer()"
+              class="w-full px-4 py-3 rounded-2xl border-2 border-slate-200 focus:border-indigo-600 focus:outline-none text-base font-bold text-slate-900 bg-slate-50/50" />
+
+            <div class="grid grid-cols-3 gap-2">
+              <button onclick="revealClozeAnswer()" class="py-2.5 px-3 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 font-bold text-xs active:scale-95 transition">
+                💡 看解答
+              </button>
+              <button onclick="checkClozeAnswer()" class="col-span-2 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-sm active:scale-95 transition">
+                ✓ 檢查答案
+              </button>
+            </div>
+          </div>
+
+          <!-- 填空批改結果 -->
+          <div id="cloze-result" class="hidden rounded-2xl p-3.5 text-xs border space-y-1">
+            <div id="cloze-result-title" class="font-extrabold text-sm"></div>
+            <div id="cloze-result-answer" class="font-bold text-slate-800"></div>
+          </div>
+
+          <!-- 切換題目按鈕 -->
+          <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+            <button onclick="prevCloze()" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs active:scale-95">← 上一題</button>
+            <button onclick="randomCloze()" class="py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-xs active:scale-95">🎲 隨機一題</button>
+            <button onclick="nextCloze()" class="py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs active:scale-95">下一題 →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 4. 單字列表與星號收藏 ==================== -->
+      <section id="view-list" class="hidden space-y-3 animate-fade-up">
+        <!-- 搜尋框 -->
+        <div class="relative">
+          <input id="list-search-input" type="text" oninput="renderWordList()"
+            placeholder="搜尋英文單字、詞性或中文解釋..."
+            class="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white border border-slate-200 text-sm focus:border-indigo-600 focus:outline-none shadow-xs" />
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+        </div>
+
+        <div class="flex items-center justify-between text-xs text-slate-500 px-1">
+          <span id="list-count-label">共 82 個核心單字</span>
+          <button onclick="clearAllStarsConfirm()" class="text-slate-400 hover:text-rose-600 underline">清除全部收藏</button>
+        </div>
+
+        <!-- 單字清單容器 -->
+        <div id="word-list-container" class="space-y-2.5">
+          <!-- 動態產生單字卡片 -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 底部固定導覽列（適合單手拇指點擊） -->
+    <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
+      <div class="grid grid-cols-4 gap-1">
+        <button onclick="switchTab('flashcard')" id="nav-flashcard" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-indigo-600 bg-indigo-50/80 font-bold transition">
+          <span class="text-lg leading-none mb-1">🗂️</span>
+          <span class="text-[11px]">單字卡</span>
+        </button>
+        <button onclick="switchTab('quiz')" id="nav-quiz" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800 font-medium transition">
+          <span class="text-lg leading-none mb-1">🎯</span>
+          <span class="text-[11px]">四選一測驗</span>
+        </button>
+        <button onclick="switchTab('cloze')" id="nav-cloze" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800 font-medium transition">
+          <span class="text-lg leading-none mb-1">✍️</span>
+          <span class="text-[11px]">例句填空</span>
+        </button>
+        <button onclick="switchTab('list')" id="nav-list" class="nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800 font-medium transition">
+          <span class="text-lg leading-none mb-1">⭐</span>
+          <span class="text-[11px]">單字列表</span>
+        </button>
+      </div>
+    </nav>
+
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. 完整內建資料庫：核單 U5–U9 核心單字與例句 (共 82 字)
+    // =========================================================================
+    const CORE_VOCAB = [
+      // --- Unit 5 (15 words) ---
+      { id: "U5-01", unit: "U5", word: "tame", pos: "vt. / adj.", meaning: "馴化；馴服；控制 / 溫馴的", en: "Beauty tamed the wild Beast.", zh: "美女馴服了野獸。" },
+      { id: "U5-02", unit: "U5", word: "previously", pos: "adv.", meaning: "先前地；以前", en: "Jeff bought a previously owned car.", zh: "傑夫買了一輛二手車。" },
+      { id: "U5-03", unit: "U5", word: "grave", pos: "n. [C]", meaning: "墳墓；埋葬處", en: "Every year, Stella put flowers on her father's grave.", zh: "史黛拉每年都會到父親墳前獻花。" },
+      { id: "U5-04", unit: "U5", word: "bury", pos: "vt.", meaning: "埋葬；埋藏", en: "Claire's dog likes to bury bones in her garden.", zh: "克萊兒的狗喜歡把骨頭埋在她的花園裡。" },
+      { id: "U5-05", unit: "U5", word: "journal", pos: "n. [C]", meaning: "雜誌；刊物；日誌", en: "A famous journal released David's paper.", zh: "有一本著名的刊物發表了大衛的論文。" },
+      { id: "U5-06", unit: "U5", word: "suggest", pos: "vt.", meaning: "顯示；表明；暗示；建議", en: "I read about a study that suggests some vitamins may be harmful to a person.", zh: "我讀到一份研究表示某些維他命可能對人有害。" },
+      { id: "U5-07", unit: "U5", word: "relationship", pos: "n. [C, U]", meaning: "關係；人際關係", en: "It is important to have a good relationship with your customers.", zh: "和你的顧客打好關係很重要。" },
+      { id: "U5-08", unit: "U5", word: "researcher", pos: "n. [C]", meaning: "研究人員", en: "The company hired a researcher.", zh: "公司聘請了一位研究人員。" },
+      { id: "U5-09", unit: "U5", word: "suspect", pos: "vt. / n. [C]", meaning: "猜想；懷疑 / 嫌疑犯", en: "Paul suspected Jerry had eaten the last candy bar.", zh: "保羅懷疑傑瑞吃掉了最後一條巧克力棒。" },
+      { id: "U5-10", unit: "U5", word: "discovery", pos: "n. [C, U]", meaning: "發現；發覺", en: "The scientists explained their discovery to the press.", zh: "科學家們向新聞媒體說明他們的發現。" },
+      { id: "U5-11", unit: "U5", word: "confirm", pos: "vt. / vi.", meaning: "確認；證實", en: "I called the airline to confirm our reservations.", zh: "我打電話到航空公司確認我們的訂位。" },
+      { id: "U5-12", unit: "U5", word: "arise", pos: "vi.", meaning: "發生；出現；產生；起床", en: "When an opportunity arises, grab it.", zh: "機會出現時，就要抓住它。" },
+      { id: "U5-13", unit: "U5", word: "attract", pos: "vt.", meaning: "吸引", en: "Ants were attracted to the honey that was left on the kitchen counter.", zh: "螞蟻被廚房流理台上殘留的蜂蜜所吸引。" },
+      { id: "U5-14", unit: "U5", word: "rapidly", pos: "adv.", meaning: "迅速地；急速地", en: "The computer rapidly solved the difficult math problems.", zh: "那台電腦迅速地解開了困難的數學問題。" },
+      { id: "U5-15", unit: "U5", word: "reduce", pos: "vt.", meaning: "減少；降低", en: "Regular exercise reduces the risk of many illnesses.", zh: "規律運動可降低罹患許多疾病的風險。" },
+
+      // --- Unit 6 (19 words) ---
+      { id: "U6-01", unit: "U6", word: "fake", pos: "adj. / n. / vt.", meaning: "假的 / 假貨；仿冒品 / 假裝", en: "Sandy has a fake fur hat that she wears in winter.", zh: "珊蒂有一頂冬天時戴的假皮帽。" },
+      { id: "U6-02", unit: "U6", word: "mislead", pos: "vt. / vi.", meaning: "誤導；把……帶錯方向", en: "The politician's speech was purposely made to mislead the public.", zh: "這位政治家的言論是為了故意誤導大眾。" },
+      { id: "U6-03", unit: "U6", word: "customer", pos: "n. [C]", meaning: "顧客", en: "Before starting the advertising campaign, the company carried out a customer survey.", zh: "這間公司在開始進行廣告活動前先做了顧客調查。" },
+      { id: "U6-04", unit: "U6", word: "exception", pos: "n. [C]", meaning: "例外", en: "I usually sleep very well, but last night was an exception.", zh: "我通常睡得很好，但昨晚是個例外。" },
+      { id: "U6-05", unit: "U6", word: "achieve", pos: "vt. / vi.", meaning: "實現；達成", en: "In a sense, David has achieved all he had hoped for in life.", zh: "就某種意義說來，大衛已經實現他對人生的所有期望了。" },
+      { id: "U6-06", unit: "U6", word: "quality", pos: "n. [U] / adj.", meaning: "品質；優質；特質 / 品質良好的", en: "Our company considers quality to be its number one priority.", zh: "我們公司將品質視為首要考量。" },
+      { id: "U6-07", unit: "U6", word: "industry", pos: "n. [C, U]", meaning: "行業；產業；工業", en: "That company is a leader in the banking industry.", zh: "那家公司是銀行業的龍頭。" },
+      { id: "U6-08", unit: "U6", word: "requirement", pos: "n. [C]", meaning: "必要條件；要求；規定", en: "Good writing skills are a requirement for the job I am trying to get.", zh: "好的寫作技巧是我應徵的工作之必要條件。" },
+      { id: "U6-09", unit: "U6", word: "quantity", pos: "n. [C, U]", meaning: "數量", en: "We have a high quantity of crops from the recent harvest.", zh: "我們最近的收成採收到非常大量的農作物。" },
+      { id: "U6-10", unit: "U6", word: "rather than", pos: "conj. / prep.", meaning: "與其；而不是", en: "Oscar likes to play in the garden rather than in his room.", zh: "奧斯卡喜歡在花園玩而不是在他房間裡玩。" },
+      { id: "U6-11", unit: "U6", word: "substance", pos: "n. [C, U]", meaning: "物質；實質內容；要點", en: "Some fast foods have substances that aren't meant to be eaten.", zh: "有些速食含有不該被食用的物質。" },
+      { id: "U6-12", unit: "U6", word: "link", pos: "vt. / vi. / n.", meaning: "使有關聯；聯繫；連結", en: "Smoking has been linked to heart and lung diseases.", zh: "抽煙與心臟及肺部疾病有關。" },
+      { id: "U6-13", unit: "U6", word: "cancer", pos: "n. [U, C]", meaning: "癌症", en: "Lenny's aunt has cancer, but she's taking medicine to fight it.", zh: "蕾妮的姑姑得了癌症，但她目前有服藥對抗病魔。" },
+      { id: "U6-14", unit: "U6", word: "metal", pos: "n. [C, U]", meaning: "金屬", en: "Metal cups won't break like glass ones.", zh: "金屬杯子不像玻璃杯會破掉。" },
+      { id: "U6-15", unit: "U6", word: "exhibit", pos: "vt. / n. [C]", meaning: "顯出；表示；展示；陳列 / 展覽", en: "The company is exhibiting signs of steady growth.", zh: "這間公司露出穩定成長的跡象。" },
+      { id: "U6-16", unit: "U6", word: "visible", pos: "adj.", meaning: "看得見的；顯而易見的", en: "Contrary to popular belief, the Great Wall of China isn't visible from space.", zh: "和普遍的看法相反，從太空是看不到萬里長城的。" },
+      { id: "U6-17", unit: "U6", word: "medical", pos: "adj.", meaning: "醫學的；醫療的", en: "Problem-solving skills are essential to many careers, especially those in the medical field.", zh: "解決問題的能力在很多職業中是不可或缺的，尤其是在醫療領域的職業。" },
+      { id: "U6-18", unit: "U6", word: "condition", pos: "n. [C, U]", meaning: "疾病；情況；狀況；條件", en: "Some scratches apart, the car is in excellent condition.", zh: "除了有一些刮痕外，這輛車的狀態絕佳。" },
+      { id: "U6-19", unit: "U6", word: "disease", pos: "n. [C, U]", meaning: "疾病", en: "Luckily, the disease is in the early stages and can be treated.", zh: "幸好這疾病還在初期階段可以治癒。" },
+
+      // --- Unit 7 (13 words) ---
+      { id: "U7-01", unit: "U7", word: "consider", pos: "vt. / vi.", meaning: "考慮；斟酌；認為", en: "Please consider coming with us to Europe.", zh: "請考慮跟我們去歐洲。" },
+      { id: "U7-02", unit: "U7", word: "stranger", pos: "n. [C]", meaning: "陌生人", en: "A stranger holding a map asked me for directions.", zh: "一個拿著地圖的陌生人向我問路。" },
+      { id: "U7-03", unit: "U7", word: "parade", pos: "n. [C] / vi. / vt.", meaning: "遊行；一隊人；一系列", en: "Did you see the parade of children in costumes last weekend?", zh: "你上週末有看見孩子們穿著表演服裝的遊行隊伍嗎？" },
+      { id: "U7-04", unit: "U7", word: "cheerfully", pos: "adv.", meaning: "興高采烈地", en: "The man cheerfully offered his seat on the bus to an old lady.", zh: "那位男子很高興地把公車的位子讓座給一位老婦人。" },
+      { id: "U7-05", unit: "U7", word: "splash", pos: "vt. / vi.", meaning: "使濺潑；戲水", en: "The children had great fun splashing around in the pool.", zh: "孩子們在池裡玩水玩得很開心。" },
+      { id: "U7-06", unit: "U7", word: "good-natured", pos: "adj.", meaning: "友善的；溫馴的", en: "Steve is usually good-natured; I don't know why he is so mean today.", zh: "史蒂夫通常很友善；我不知道他今天為什麼這麼惡劣。" },
+      { id: "U7-07", unit: "U7", word: "spare", pos: "vt. / adj. / n.", meaning: "使免遭傷害；騰出 / 備用的；多餘的", en: "If you could spare some time to help me, I would be grateful.", zh: "如果你能夠騰出一些時間來幫我，我會很感激。" },
+      { id: "U7-08", unit: "U7", word: "respect", pos: "n. [U] / vt.", meaning: "尊敬；敬意 / 尊重", en: "The students have great respect for their teacher.", zh: "學生們對他們的老師懷抱敬意。" },
+      { id: "U7-09", unit: "U7", word: "pour", pos: "vt. / vi.", meaning: "傾注；倒出；傾瀉", en: "He poured milk on his cereal.", zh: "他把牛奶倒在麥片上。" },
+      { id: "U7-10", unit: "U7", word: "tourist", pos: "n. [C]", meaning: "觀光客", en: "The government is trying to attract tourists to the island.", zh: "政府正努力吸引觀光客到島上來。" },
+      { id: "U7-11", unit: "U7", word: "favorite", pos: "adj. / n. [C]", meaning: "最中意的；最愛的 / 最喜愛的事物", en: "I'm going to wear my favorite shirt today.", zh: "今天我要穿我最喜愛的襯衫。" },
+      { id: "U7-12", unit: "U7", word: "target", pos: "n. [C] / vt.", meaning: "目標；靶子 / 瞄準；以……為目標", en: "Aim at the target and shoot the gun.", zh: "對準目標，然後射擊。" },
+      { id: "U7-13", unit: "U7", word: "community", pos: "n. [C]", meaning: "社群；社區", en: "Reba lives in a community near Miami.", zh: "瑞芭住在靠近邁阿密的一個社區裡。" },
+
+      // --- Unit 8 (15 words) ---
+      { id: "U8-01", unit: "U8", word: "efficiently", pos: "adv.", meaning: "有效率地", en: "The system works very efficiently, which explains its popularity.", zh: "這個系統運作得很有效率，這說明了它受歡迎的原因。" },
+      { id: "U8-02", unit: "U8", word: "objective", pos: "n. [C] / adj.", meaning: "目標；宗旨 / 客觀的", en: "The objective of this exercise is to help the team work together.", zh: "這項運動的目標是協助團隊合作。" },
+      { id: "U8-03", unit: "U8", word: "delay", pos: "n. [U, C] / vt. / vi.", meaning: "延期 / 使延期；推遲；拖延", en: "There was a delay at the airport, so my flight won't arrive until 10:30.", zh: "機場的時間有延誤，所以我的班機十點半才會到。" },
+      { id: "U8-04", unit: "U8", word: "buzz", pos: "vi. / n. [C]", meaning: "發出嗡嗡聲 / 風潮；熱潮", en: "I was woken up by a mosquito buzzing near my ear.", zh: "我被耳邊嗡嗡叫的蚊子吵醒了。" },
+      { id: "U8-05", unit: "U8", word: "period", pos: "n. [C]", meaning: "一段時間；時期；階段", en: "Cheryl wanted to rest for a period of time.", zh: "雪兒想要休息一段時間。" },
+      { id: "U8-06", unit: "U8", word: "extended", pos: "adj.", meaning: "延長的", en: "We had an extended weekend because of the holiday.", zh: "因為國定假日，我們週末延長了。" },
+      { id: "U8-07", unit: "U8", word: "improve", pos: "vt. / vi.", meaning: "改善；提高；增進", en: "Bonny wants to take a course to improve her communication skills.", zh: "邦妮想去上課來改善溝通能力。" },
+      { id: "U8-08", unit: "U8", word: "system", pos: "n. [C]", meaning: "制度；系統", en: "The building had a new security system.", zh: "這棟大樓有新的保全系統。" },
+      { id: "U8-09", unit: "U8", word: "track", pos: "vt. / n. [C]", meaning: "追蹤 / 跑道；軌跡；蹤跡", en: "The hunter tried to track the deer, but he quickly lost it in the forest.", zh: "獵人想要追蹤那頭鹿，但是他在森林裡很快就跟丟了。" },
+      { id: "U8-10", unit: "U8", word: "evaluate", pos: "vt.", meaning: "評估；評價", en: "Before making a decision, you should make sure to carefully evaluate all your options.", zh: "在你做決定之前，應確保要小心評估所有選項。" },
+      { id: "U8-11", unit: "U8", word: "progress", pos: "n. [U] / vi.", meaning: "進步；進展 / 逐步發展", en: "Greg has made a lot of progress on his homework.", zh: "葛瑞格的家庭作業在進度上有大幅進展。" },
+      { id: "U8-12", unit: "U8", word: "regulate", pos: "vt.", meaning: "規範；控管", en: "Regulate what you eat if you want to lose weight.", zh: "如果你想減重，就要控管你吃的食物。" },
+      { id: "U8-13", unit: "U8", word: "concentration", pos: "n. [U]", meaning: "集中；專注", en: "The golfer lost his concentration when someone shouted.", zh: "那位高爾夫球員因為有人大叫而閃了神。" },
+      { id: "U8-14", unit: "U8", word: "pile", pos: "vt. / n. [C]", meaning: "堆積；堆疊 / 堆；一堆", en: "Carol piled all her dirty clothes on the bed.", zh: "卡蘿把她所有的髒衣服都堆在床上。" },
+      { id: "U8-15", unit: "U8", word: "appetite", pos: "n. [C, U]", meaning: "胃口；食慾；渴望", en: "Cassie is unwell; she has a fever and no appetite.", zh: "凱西不舒服；她發燒而且沒胃口。" },
+
+      // --- Unit 9 (20 words) ---
+      { id: "U9-01", unit: "U9", word: "arrival", pos: "n. [U, C]", meaning: "到來；到達（的人或物）", en: "Flowers begin to grow with the arrival of spring.", zh: "花朵在春天到來時開始生長。" },
+      { id: "U9-02", unit: "U9", word: "century", pos: "n. [C]", meaning: "一世紀；百年", en: "The first car was built in the nineteenth century.", zh: "第一輛汽車是在十九世紀時建造的。" },
+      { id: "U9-03", unit: "U9", word: "eventually", pos: "adv.", meaning: "終於；最終；最後", en: "After a two-hour delay, the plane eventually took off.", zh: "經過兩個小時的延誤，飛機終於起飛了。" },
+      { id: "U9-04", unit: "U9", word: "release", pos: "vt. / n. [C, U]", meaning: "發行；發表；釋出；釋放", en: "The singer will release her new album in the spring.", zh: "那位歌手會在今年春天發行她的新專輯。" },
+      { id: "U9-05", unit: "U9", word: "mobile", pos: "adj.", meaning: "行動的；可移動的", en: "A mobile health service is available for those who live far from clinics.", zh: "有一個行動健康醫療服務可供住在離診所很遠的人使用。" },
+      { id: "U9-06", unit: "U9", word: "attractive", pos: "adj.", meaning: "迷人的；有吸引力的", en: "The actor was known for his attractive smile.", zh: "這名演員以其迷人的笑容聞名。" },
+      { id: "U9-07", unit: "U9", word: "foldable", pos: "adj.", meaning: "可折疊的", en: "This smartphone is foldable and can fit in your pocket.", zh: "這支智慧型手機是可折疊的，它可以放進你的口袋裡。" },
+      { id: "U9-08", unit: "U9", word: "model", pos: "n. [C] / vt.", meaning: "機型；型號；模型；模特兒 / 模仿", en: "The company put out a new camera model.", zh: "那家公司推出一款新型號的相機。" },
+      { id: "U9-09", unit: "U9", word: "portable", pos: "adj.", meaning: "可攜帶的；輕便的", en: "We can take this portable gas stove on our camping trip.", zh: "我們可以把這個可攜式瓦斯爐帶去露營。" },
+      { id: "U9-10", unit: "U9", word: "mass", pos: "adj. / n. [C]", meaning: "大量的；大規模的 / 眾多；團；塊", en: "The explosion caused mass panic in the metro.", zh: "這起爆炸在地鐵站引起群眾恐慌。" },
+      { id: "U9-11", unit: "U9", word: "production", pos: "n. [U, C]", meaning: "生產（量）；製作", en: "The new factory means production will increase next year.", zh: "這間新工廠意味著明年生產量會增加。" },
+      { id: "U9-12", unit: "U9", word: "digital", pos: "adj.", meaning: "數位的", en: "My digital watch has a little light so I can check the time when it is dark.", zh: "我的數位手錶有一個小燈，這樣我在黑暗中還是可以看時間。" },
+      { id: "U9-13", unit: "U9", word: "display", pos: "n. [C] / vt.", meaning: "顯示器；展示；陳列", en: "Some beautiful flowers were displayed in the shop's window.", zh: "店家櫥窗中陳列了一些漂亮的花。" },
+      { id: "U9-14", unit: "U9", word: "development", pos: "n. [C, U]", meaning: "發展；進展", en: "The development of the farming industry was the key to the country's improvement.", zh: "農業發展是該國進步的關鍵。" },
+      { id: "U9-15", unit: "U9", word: "screen", pos: "n. [C] / vt.", meaning: "螢幕 / 篩選；審查", en: "When David touched the screen, the computer turned on.", zh: "當大衛觸碰螢幕，電腦就開啟。" },
+      { id: "U9-16", unit: "U9", word: "marriage", pos: "n. [C]", meaning: "結合體；融合體；婚姻", en: "The singer's music is a marriage of funk and hip-hop.", zh: "這名歌手的音樂融合了放克和嘻哈。" },
+      { id: "U9-17", unit: "U9", word: "revolutionary", pos: "adj.", meaning: "革命性的；革命的", en: "Charles Darwin created a revolutionary theory about man's origin.", zh: "查爾斯·達爾文創立了一套關於人類起源革命性的理論。" },
+      { id: "U9-18", unit: "U9", word: "era", pos: "n. [C]", meaning: "紀元；時代；年代", en: "The invention of the personal computer started a new era.", zh: "個人電腦的發明開啟了一個新紀元。" },
+      { id: "U9-19", unit: "U9", word: "technology", pos: "n. [U, C]", meaning: "科技；技術", en: "The car company is hoping that the new technology will make driving safer.", zh: "這家汽車公司希望這項新的科技會讓開車更安全。" },
+      { id: "U9-20", unit: "U9", word: "launch", pos: "n. [C] / vt.", meaning: "上市；發起 / 推出（新產品）；發射", en: "The technology company just announced the launch of a new product line.", zh: "那家科技公司剛宣布將推出新的系列產品。" }
+    ];
+
+    // =========================================================================
+    // 2. 完整內建資料庫：核單 U5–U9 考卷第 11–20 題 (共 49 題)
+    // =========================================================================
+    const EXAM_QUESTIONS = [
+      // --- 核單 U5 (11-20) ---
+      { unit: "U5", num: 11, q: "Scientists have long ________ that negative emotions can hurt your health.", opts: ["(A) buried", "(B) suspected", "(C) released", "(D) tamed"], ans: 1, exp: "科學家長期以來一直懷疑（suspected）負面情緒會損害健康。" },
+      { unit: "U5", num: 12, q: "________ at the company tested different ways to make the glue stronger.", opts: ["(A) Researchers", "(B) Crickets", "(C) Mammals", "(D) Partners"], ans: 0, exp: "公司裡的研究人員（Researchers）測試了不同方法讓膠水更黏。" },
+      { unit: "U5", num: 13, q: "The store offered free samples in order to ________ new customers.", opts: ["(A) suggest", "(B) increase", "(C) bury", "(D) attract"], ans: 3, exp: "這家店提供免費試用品以吸引（attract）新顧客。" },
+      { unit: "U5", num: 14, q: "Everyone around Amy keeps ________ ways for her to lose weight. She isn’t sure which way is best.", opts: ["(A) labeling", "(B) suggesting", "(C) reducing", "(D) burying"], ans: 1, exp: "Amy 身邊每個人都一直向她建議（suggesting）減重的方法。" },
+      { unit: "U5", num: 15, q: "Thank you! You will receive ________ of your flight booking via e-mail.", opts: ["(A) suspicion", "(B) reduction", "(C) confirmation", "(D) preservation"], ans: 2, exp: "您將會透過電子郵件收到機票預訂的確認信（confirmation）。" },
+      { unit: "U5", num: 16, q: "Journalists are ________ the background of the royal family member to satisfy reader curiosity.", opts: ["(A) researching", "(B) removing", "(C) attracting", "(D) advising"], ans: 0, exp: "記者正在調查研究（researching）該皇室成員的背景以滿足讀者好奇心。" },
+      { unit: "U5", num: 17, q: "Technology changes so ________ that new products are released every day.", opts: ["(A) roughly", "(B) rapidly", "(C) probably", "(D) possibly"], ans: 1, exp: "科技變化如此迅速（rapidly），以至於每天都有新產品推出。" },
+      { unit: "U5", num: 18, q: "The ________ growth of the population has caused problems for the country.", opts: ["(A) burial", "(B) modern", "(C) previous", "(D) reduced"], ans: 3, exp: "人口成長減緩（reduced）已經為這個國家帶來問題。" },
+      { unit: "U5", num: 19, q: "To honor the late singer, the fans visit and decorate her ________ every year.", opts: ["(A) research", "(B) stock", "(C) charm", "(D) grave"], ans: 3, exp: "為了紀念這位已故歌手，歌迷每年都會去她的墳墓（grave）獻花裝飾。" },
+      { unit: "U5", num: 20, q: "The residents protested the city’s plan to ________ garbage near the local water source.", opts: ["(A) bury", "(B) attract", "(C) increase", "(D) discover"], ans: 0, exp: "居民抗議市府打算在當地水源附近掩埋（bury）垃圾的計畫。" },
+
+      // --- 核單 U6 (11-20) ---
+      { unit: "U6", num: 11, q: "College students don’t normally have a lot of money, and I’m no ________.", opts: ["(A) exhibition", "(B) condition", "(C) exception", "(D) collection"], ans: 2, exp: "be no exception 意為「也不例外」。" },
+      { unit: "U6", num: 12, q: "It is a government ________ to wear a mask during COVID-19.", opts: ["(A) safety", "(B) requirement", "(C) medicine", "(D) disease"], ans: 1, exp: "在疫情期間戴口罩是政府的規定（requirement）。" },
+      { unit: "U6", num: 13, q: "The politician ________ the public by avoiding key facts in his speech.", opts: ["(A) misled", "(B) linked", "(C) suspected", "(D) preserved"], ans: 0, exp: "這位政治人物在演講中迴避關鍵事實，誤導了（misled）大眾。" },
+      { unit: "U6", num: 14, q: "Congratulations on your graduation! I’m sure you’ll go on to ________ great things in life.", opts: ["(A) achieve", "(B) fake", "(C) exhibit", "(D) require"], ans: 0, exp: "恭喜畢業！我相信你未來在人生中會達成（achieve）偉大的成就。" },
+      { unit: "U6", num: 15, q: "Cindy discovered ________ lipstick marks on the collar of her husband’s shirt.", opts: ["(A) medical", "(B) frozen", "(C) suspicious", "(D) conditioned"], ans: 2, exp: "Cindy 在丈夫襯衫領口發現了可疑的（suspicious）口紅印。" },
+      { unit: "U6", num: 16, q: "Our products are not cheap because we focus on providing the highest possible ________.", opts: ["(A) customer", "(B) quality", "(C) situation", "(D) discovery"], ans: 1, exp: "我們的產品不便宜，因為我們專注於提供最高可能的品質（quality）。" },
+      { unit: "U6", num: 17, q: "All the hikers made sure to bring large ________ of water for the long hiking trip.", opts: ["(A) achievements", "(B) exhibitions", "(C) suspicions", "(D) quantities"], ans: 3, exp: "large quantities of 意為「大量的」。" },
+      { unit: "U6", num: 18, q: "Be careful when buying a watch from the market as many of them are ________.", opts: ["(A) required", "(B) fake", "(C) medical", "(D) tame"], ans: 1, exp: "在市場買手錶時要小心，因為很多都是仿冒品／假的（fake）。" },
+      { unit: "U6", num: 19, q: "If you ________ signs of the disease, go see a doctor immediately.", opts: ["(A) associate", "(B) produce", "(C) exhibit", "(D) mislead"], ans: 2, exp: "如果你顯現出（exhibit）這種疾病的徵兆，請立即就醫。" },
+      { unit: "U6", num: 20, q: "Michael Jordan’s ________ were so numerous that he is still considered the best basketball player of all time.", opts: ["(A) achievements", "(B) quantities", "(C) industries", "(D) substances"], ans: 0, exp: "麥可·喬丹的成就（achievements）多不勝數。" },
+
+      // --- 核單 U7 (11-20) ---
+      { unit: "U7", num: 11, q: "Tim liked to play tennis in his ________ time.", opts: ["(A) natural", "(B) respectful", "(C) considerate", "(D) spare"], ans: 3, exp: "in one's spare time 意為「在某人空閒時間」。" },
+      { unit: "U7", num: 12, q: "Jenny is such a(n) ________ girl that everyone wants to be her friend.", opts: ["(A) left-handed", "(B) old-fashioned", "(C) good-natured", "(D) ill-tempered"], ans: 2, exp: "Jenny 是個如此友善溫和（good-natured）的女孩，每個人都想和她做朋友。" },
+      { unit: "U7", num: 13, q: "You should mix the flour, egg, and sugar together before you ________ the milk into the big bowl.", opts: ["(A) pour", "(B) target", "(C) spare", "(D) consider"], ans: 0, exp: "在把牛奶倒（pour）進大碗之前，你應該先把麵粉、蛋和糖混合。" },
+      { unit: "U7", num: 14, q: "Jack’s strange behavior often makes him become the ________ of his friends’ jokes.", opts: ["(A) tourism", "(B) physicist", "(C) target", "(D) produce"], ans: 2, exp: "Jack 奇怪的舉止常讓他成為朋友開玩笑的對象／目標（target）。" },
+      { unit: "U7", num: 15, q: "Emma doesn’t ________ quitting her job a bad decision because she now has more time to take care of her son.", opts: ["(A) suspect", "(B) cheer", "(C) spare", "(D) consider"], ans: 3, exp: "consider + O. + OC 意為「認為……是……」。" },
+      { unit: "U7", num: 16, q: "To ________ the children in the hospital, Colby showed them how to do magic tricks.", opts: ["(A) find out", "(B) turn up", "(C) die out", "(D) cheer up"], ans: 3, exp: "為了讓醫院裡的孩子振作高興起來（cheer up），Colby 表演魔術給他們看。" },
+      { unit: "U7", num: 17, q: "Out of all the seasons, I think spring is my ________.", opts: ["(A) capitalist", "(B) spare", "(C) member", "(D) favorite"], ans: 3, exp: "在所有季節中，我覺得春天是我的最愛（favorite）。" },
+      { unit: "U7", num: 18, q: "This new cosmetic product ________ teenage girls who want to become beautiful without spending a lot of money.", opts: ["(A) visits", "(B) targets", "(C) pours", "(D) spares"], ans: 1, exp: "這款新化妝品以（targets）不想花大錢就想變美的青少年女孩為目標客群。" },
+      { unit: "U7", num: 19, q: "After the election results were announced, thousands of people ________ down the streets.", opts: ["(A) considered", "(B) linked", "(C) paraded", "(D) respected"], ans: 2, exp: "選舉結果公布後，成千上萬的人在街上遊行（paraded）。" },
+      { unit: "U7", num: 20, q: "As a ________ husband, Andy can take care of all his wife’s needs.", opts: ["(A) cheerful", "(B) favorite", "(C) considerate", "(D) previous"], ans: 2, exp: "身為一位體貼的（considerate）丈夫，Andy 能照顧到妻子所有的需求。" },
+
+      // --- 核單 U8 (11-19，考卷共 9 題) ---
+      { unit: "U8", num: 11, q: "The books and magazines were ________ on the desk.", opts: ["(A) paraded", "(B) repeated", "(C) piled", "(D) regulated"], ans: 2, exp: "書本和雜誌堆疊（piled）在書桌上。" },
+      { unit: "U8", num: 12, q: "I have ________ most of my old classmates because I moved to another city after graduation.", opts: ["(A) concentrated on", "(B) dealt with", "(C) fallen for", "(D) lost track of"], ans: 3, exp: "lose track of 意為「與……失去聯繫」。" },
+      { unit: "U8", num: 13, q: "The team worked very ________ because they were hoping to finish the project before the national holiday.", opts: ["(A) regularly", "(B) efficiently", "(C) repeatedly", "(D) extensively"], ans: 1, exp: "團隊非常有效率地（efficiently）工作，希望能趕在國定假日前完成專案。" },
+      { unit: "U8", num: 14, q: "After ________ all his options, Jeff decided not to quit his job now, but to work part time at night to increase his income.", opts: ["(A) tracking", "(B) evaluating", "(C) piling", "(D) improving"], ans: 1, exp: "在評估（evaluating）所有選項後，Jeff 決定先不辭職。" },
+      { unit: "U8", num: 15, q: "Parents are advised to ________ their children’s screen time to prevent them from becoming addicted to online games.", opts: ["(A) regulate", "(B) express", "(C) repeat", "(D) extend"], ans: 0, exp: "建議家長控管（regulate）孩子的螢幕使用時間。" },
+      { unit: "U8", num: 16, q: "Thanks to improved trade, the country’s economy has made a(n) ________ over the past months.", opts: ["(A) efficiency", "(B) significance", "(C) periodical", "(D) improvement"], ans: 3, exp: "make an improvement 意為「取得改善、進步」。" },
+      { unit: "U8", num: 17, q: "Winter vacation was ________ for two more weeks because of the outbreak of a disease.", opts: ["(A) improved", "(B) extended", "(C) piled", "(D) buzzed"], ans: 1, exp: "因為疾病爆發，寒假被延長了（extended）兩週。" },
+      { unit: "U8", num: 18, q: "Though Anna tries her best to be fair, it is not possible for her to avoid ________ judgment when grading her students’ work.", opts: ["(A) immune", "(B) efficient", "(C) subjective", "(D) periodic"], ans: 2, exp: "即使盡力公平，批改作業時仍難免有主觀（subjective）判斷。" },
+      { unit: "U8", num: 19, q: "It is against safety ________ to carry a knife with you to school.", opts: ["(A) regulations", "(B) reductions", "(C) ecosystems", "(D) evaluations"], ans: 0, exp: "帶刀去學校違反安全規定（regulations）。" },
+
+      // --- 核單 U9 (11-20) ---
+      { unit: "U9", num: 11, q: "Everyone is very excited about the ________ of the new X-Phone series.", opts: ["(A) digit", "(B) launch", "(C) folder", "(D) century"], ans: 1, exp: "每個人都對新款 X-Phone 系列的上市（launch）感到興奮。" },
+      { unit: "U9", num: 12, q: "Ricky’s parents sent him to California to speed up the ________ of his English skills.", opts: ["(A) exhibition", "(B) mobility", "(C) attraction", "(D) development"], ans: 3, exp: "Ricky 的父母送他去加州以加速他英文能力的發展（development）。" },
+      { unit: "U9", num: 13, q: "Albert Einstein had some ________ ideas which led to inventions that changed the world.", opts: ["(A) predictable", "(B) folding", "(C) revolutionary", "(D) digitized"], ans: 2, exp: "愛因斯坦有些革命性的（revolutionary）想法，促成了改變世界的發明。" },
+      { unit: "U9", num: 14, q: "The shop always puts its most popular items on ________ at the front of the store.", opts: ["(A) display", "(B) manufacture", "(C) product", "(D) revolution"], ans: 0, exp: "on display 意為「陳列；展示」。" },
+      { unit: "U9", num: 15, q: "In order to slow the spread of the virus, ________ gatherings were made temporarily illegal.", opts: ["(A) productive", "(B) mass", "(C) eventual", "(D) appealing"], ans: 1, exp: "mass gatherings 意為「大規模集會」。" },
+      { unit: "U9", num: 16, q: "The point of releasing a new ________ is to make improvements on the old ones.", opts: ["(A) model", "(B) portability", "(C) developer", "(D) screening"], ans: 0, exp: "推出新型號（model）的重點在於改進舊款。" },
+      { unit: "U9", num: 17, q: "Bluetooth enabled the creation of ________ devices like Bluetooth speakers.", opts: ["(A) mass", "(B) display", "(C) subjective", "(D) portable"], ans: 3, exp: "藍牙促成了如藍牙喇叭等可攜式（portable）裝置的誕生。" },
+      { unit: "U9", num: 18, q: "We’re a fashion brand, so our office chairs should be ________ as well as comfortable.", opts: ["(A) married", "(B) extended", "(C) attractive", "(D) dangerous"], ans: 2, exp: "我們是時尚品牌，所以辦公椅除了舒適外也應該迷人美觀（attractive）。" },
+      { unit: "U9", num: 19, q: "Modern methods of farming are faster compared to methods in the previous ________.", opts: ["(A) revolution", "(B) century", "(C) quantity", "(D) development"], ans: 1, exp: "現代耕作方式比上一個世紀（century）的方法更快。" },
+      { unit: "U9", num: 20, q: "My grandfather is 83, so he’s not as ________ as he used to be when he was younger.", opts: ["(A) mobile", "(B) medical", "(C) eventual", "(D) extensive"], ans: 0, exp: "祖父 83 歲了，所以行動不像年輕時那麼靈活（mobile）。" }
+    ];
+
+    // =========================================================================
+    // 3. 完整內建資料庫：龍騰 L04, L05, L06 課本例句字彙與片語填空 (共 128 題)
+    // =========================================================================
+    const CLOZE_ITEMS = [
+      // --- L04 Vocabulary (45) ---
+      { lesson: "L04", type: "vocab", sentence: "1. Kelly is very s______e to flavors. She can taste any food or drink and name it without seeing it.", ans: "sensitive", zh: "adj. 敏銳的；敏感的（字首 s，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "2. The owl has such a k______n sense of hearing that it can hunt animals in the dark.", ans: "keen", zh: "adj. 敏銳的（字首 k，字尾 n）" },
+      { lesson: "L04", type: "vocab", sentence: "3. Jamie is k______n on making his classroom’s Facebook page the most interesting one in the school.", ans: "keen", zh: "be keen on 熱衷於……（字首 k，字尾 n）" },
+      { lesson: "L04", type: "vocab", sentence: "4. For most people, it is not easy to d______t a small change in temperature.", ans: "detect", zh: "vt. 察覺；偵測（字首 d，字尾 t）" },
+      { lesson: "L04", type: "vocab", sentence: "5. More than half of the i______ms in the clothing store were on sale for one day only.", ans: "items", zh: "n. 物品；項目（字首 i，字尾 ms）" },
+      { lesson: "L04", type: "vocab", sentence: "6. Albert respects those who have a______hed something great in their lives.", ans: "accomplished", zh: "vt. 達成；完成（字首 a，字尾 hed）" },
+      { lesson: "L04", type: "vocab", sentence: "7. Marc felt that leading his basketball team to the city final was his greatest a______t of the year.", ans: "accomplishment", zh: "n. 成就（字首 a，字尾 t）" },
+      { lesson: "L04", type: "vocab", sentence: "8. Washing your hands often is a good way to stop the spread of d______e.", ans: "disease", zh: "n. 疾病（字首 d，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "9. Lynn’s grandmother is suffering from a serious heart d______e, so she is staying in a hospital.", ans: "disease", zh: "n. 疾病（字首 d，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "10. Several passengers were found to have the disease after they took the same flight as an i______d person.", ans: "infected", zh: "adj. 受感染的（字首 i，字尾 d）" },
+      { lesson: "L04", type: "vocab", sentence: "11. More than 70 million people have been i______ted with AIDS in the last 50 years.", ans: "infected", zh: "vt. 傳染；感染（字首 i，字尾 ted）" },
+      { lesson: "L04", type: "vocab", sentence: "12. The boy developed a serious i______n on his leg because he didn’t clean the wound after he fell.", ans: "infection", zh: "n. 感染（字首 i，字尾 n）" },
+      { lesson: "L04", type: "vocab", sentence: "13. You shouldn’t rub your eyes because it can cause i______n.", ans: "infection", zh: "n. 感染（字首 i，字尾 n）" },
+      { lesson: "L04", type: "vocab", sentence: "14. These days, most taxi drivers use GPS to l______e places they don’t know how to drive to.", ans: "locate", zh: "vt. 找出……的位置；定位（字首 l，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "15. This hotel is very expensive because it is in a good l______n right beside a beach.", ans: "location", zh: "n. 地點；位置（字首 l，字尾 n）" },
+      { lesson: "L04", type: "vocab", sentence: "16. Janice was given a r______d of $2,000 for informing the police of the address of the man they were searching for.", ans: "reward", zh: "n. 獎賞；報酬（字首 r，字尾 d）" },
+      { lesson: "L04", type: "vocab", sentence: "17. Larry feels satisfied when he helps strangers, even if there is no r______d.", ans: "reward", zh: "n. 回報；獎賞（字首 r，字尾 d）" },
+      { lesson: "L04", type: "vocab", sentence: "18. The teacher r______ded each of the students with a small prize after they all passed the exam.", ans: "rewarded", zh: "vt. 獎勵；獎賞（字首 r，字尾 ded）" },
+      { lesson: "L04", type: "vocab", sentence: "19. Eagles have the a______y to fly without landing for over three hours.", ans: "ability", zh: "n. 能力（字首 a，字尾 y）" },
+      { lesson: "L04", type: "vocab", sentence: "20. The weatherperson p______ted that it would start raining around 6:00 p.m., and she was correct.", ans: "predicted", zh: "vt. 預測；預言（字首 p，字尾 ted）" },
+      { lesson: "L04", type: "vocab", sentence: "21. Kyle m______ed to lose twenty pounds by exercising every day and eating less junk food.", ans: "managed", zh: "vt. 設法做到（字首 m，字尾 ed）" },
+      { lesson: "L04", type: "vocab", sentence: "22. Joey wasn’t sure that he could handle living abroad, but he m______ed quite well.", ans: "managed", zh: "vi. 應付；設法處理（字首 m，字尾 ed）" },
+      { lesson: "L04", type: "vocab", sentence: "23. Hailey’s parents told her that she should m______e her money more carefully and stop wasting it.", ans: "manage", zh: "vt. 管理（字首 m，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "24. For busy people like the president of a country, good time m______t is of great importance.", ans: "management", zh: "n. 管理（字首 m，字尾 t）" },
+      { lesson: "L04", type: "vocab", sentence: "25. The inventor of the telephone, Antonio Meucci, c______ted a new way for humans to communicate.", ans: "created", zh: "vt. 創造；發明（字首 c，字尾 ted）" },
+      { lesson: "L04", type: "vocab", sentence: "26. After the c______n of the movie theater’s website, few people called to find out what movies were playing.", ans: "creation", zh: "n. 創立；創造（字首 c，字尾 n）" },
+      { lesson: "L04", type: "vocab", sentence: "27. Nicole always has interesting new ideas, and she shows that in her c______e paintings and drawings.", ans: "creative", zh: "adj. 有創意的（字首 c，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "28. The students in the class showed great c______y in the wide range of topics they chose for their articles.", ans: "creativity", zh: "n. 創造力（字首 c，字尾 y）" },
+      { lesson: "L04", type: "vocab", sentence: "29. By reading these articles, students will be e______ed to different opinions about the topic.", ans: "exposed", zh: "vt. 使接觸；使暴露（字首 e，字尾 ed）" },
+      { lesson: "L04", type: "vocab", sentence: "30. It’s important to wear sunglasses on sunny days because your eyes could be injured if they are e______ed for too long.", ans: "exposed", zh: "vt. 使暴露於（陽光下）（字首 e，字尾 ed）" },
+      { lesson: "L04", type: "vocab", sentence: "31. Too much e______e to the sun and wind caused the paint on the building to come off.", ans: "exposure", zh: "n. 暴露（字首 e，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "32. After Mrs. Checknita fell ill, her family hired someone to help her p______m daily tasks.", ans: "perform", zh: "vt. 執行；履行（字首 p，字尾 m）" },
+      { lesson: "L04", type: "vocab", sentence: "33. Brad p______med a song as a creative way to ask Jennifer to marry him.", ans: "performed", zh: "vt. 表演；演奏（字首 p，字尾 med）" },
+      { lesson: "L04", type: "vocab", sentence: "34. The band has practiced a lot, and this show will be the first time they p______m on stage.", ans: "perform", zh: "vi. 表演；演出（字首 p，字尾 m）" },
+      { lesson: "L04", type: "vocab", sentence: "35. The magician will give a p______e of his best tricks at the end of the evening show.", ans: "performance", zh: "n. 表演；演出（字首 p，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "36. Animal b______r can tell us a lot about what a creature is thinking about or wants.", ans: "behavior", zh: "n. 行為；舉止（字首 b，字尾 r）" },
+      { lesson: "L04", type: "vocab", sentence: "37. All the guests were impressed by how little Mandy b______ed like an adult.", ans: "behaved", zh: "vi. 表現；舉止（字首 b，字尾 ed）" },
+      { lesson: "L04", type: "vocab", sentence: "38. Everybody was asked to leave the mall due to a bomb a______t in one of the stores.", ans: "alert", zh: "n. 警報（字首 a，字尾 t）" },
+      { lesson: "L04", type: "vocab", sentence: "39. The little beeps that your phone makes help you stay a______t to new emails, messages, and posts.", ans: "alert", zh: "adj. 警覺的；留意的（字首 a，字尾 t）" },
+      { lesson: "L04", type: "vocab", sentence: "40. The race is not c______e until every runner from every team crosses the finish line.", ans: "complete", zh: "adj. 完成的；結束的（字首 c，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "41. In this English literature course, we will study the c______e works of Shakespeare.", ans: "complete", zh: "adj. 全部的；完整的（字首 c，字尾 e）" },
+      { lesson: "L04", type: "vocab", sentence: "42. Kevin is an excellent student. He always c______es school projects long before they are due.", ans: "completes", zh: "vt. 完成（字首 c，字尾 es）" },
+      { lesson: "L04", type: "vocab", sentence: "43. Craig was a______ned the task of giving the new students a tour of the school.", ans: "assigned", zh: "vt. 指派；分派（字首 a，字尾 ned）" },
+      { lesson: "L04", type: "vocab", sentence: "44. The students are going to Tainan on an a______t for history class.", ans: "assignment", zh: "n. 作業；任務（字首 a，字尾 t）" },
+      { lesson: "L04", type: "vocab", sentence: "45. There wasn’t any s______c reason why Jason didn’t attend the performance with his friends. He just didn’t feel like it.", ans: "specific", zh: "adj. 明確的；特定的（字首 s，字尾 c）" },
+
+      // --- L04 Phrases (5) ---
+      { lesson: "L04", type: "phrase", sentence: "The restaurant was not very popular ________ ________ the smell of the seafood market nearby.", ans: "due to", zh: "這間餐廳因為附近生鮮市場令人作嘔的氣味而不太受歡迎。（2字）" },
+      { lesson: "L04", type: "phrase", sentence: "Cindy was walking down the street when ________ ________ ________ ________, rain began to pour down from the sky.", ans: "all of a sudden", zh: "Cindy 在街上走著，突然間從天上大雨傾盆而下。（4字）" },
+      { lesson: "L04", type: "phrase", sentence: "All the members of the band were worried about their performance, but it ________ ________ to be amazing!", ans: "turned out", zh: "所有的樂團成員都很擔心他們的演出，但結果很棒！（2字）" },
+      { lesson: "L04", type: "phrase", sentence: "Paulina went through all of her receipts but didn’t ________ ________ any winning numbers.", ans: "come across", zh: "Paulina 把所有的發票仔細看過一遍，都沒有發現任何中獎號碼。（2字）" },
+      { lesson: "L04", type: "phrase", sentence: "After the statue went missing from the square, the police ________ ________ an investigation.", ans: "carried out", zh: "在雕像從廣場消失後，警方便進行調查。（2字）" },
+
+      // --- L05 Vocabulary (36) ---
+      { lesson: "L05", type: "vocab", sentence: "1. You should never put hot drinking water into p______c bottles or cups.", ans: "plastic", zh: "adj. 塑膠製的（字首 p，字尾 c）" },
+      { lesson: "L05", type: "vocab", sentence: "2. In the old days, many toys were made of wood or metal, but now most of them are made of p______c.", ans: "plastic", zh: "n. 塑膠（字首 p，字尾 c）" },
+      { lesson: "L05", type: "vocab", sentence: "3. Many shops post their business hours on their Facebook pages for the c______e of the public.", ans: "convenience", zh: "n. 方便；便利（字首 c，字尾 e）" },
+      { lesson: "L05", type: "vocab", sentence: "4. Rick is e______y waiting for his boss to post the summer work schedule because he wants to plan his vacation.", ans: "eagerly", zh: "adv. 熱切地；渴望地（字首 e，字尾 y）" },
+      { lesson: "L05", type: "vocab", sentence: "5. After John sent the romantic email to his girlfriend, he was e______r for her reply.", ans: "eager", zh: "adj. 渴望的；熱切的（字首 e，字尾 r）" },
+      { lesson: "L05", type: "vocab", sentence: "6. The house is s______ded by tall trees, so nobody can see it from the road.", ans: "surrounded", zh: "vt. 環繞；包圍（字首 s，字尾 ded）" },
+      { lesson: "L05", type: "vocab", sentence: "7. The hotel is in beautiful natural s______gs far away from the city.", ans: "surroundings", zh: "n. 周圍環境（字首 s，字尾 gs）" },
+      { lesson: "L05", type: "vocab", sentence: "8. After the captain fell asleep, the ship passed the harbor and then d______ted toward the middle of the sea.", ans: "drifted", zh: "vi. 漂流；飄動（字首 d，字尾 ted）" },
+      { lesson: "L05", type: "vocab", sentence: "9. Christopher really e______ies his best friend, Patty, because she has been to so many countries.", ans: "envies", zh: "vt. 羨慕；嫉妒（字首 e，字尾 ies）" },
+      { lesson: "L05", type: "vocab", sentence: "10. Kyle looked with e______y at his friend’s smartphone since it was much newer and better than his.", ans: "envy", zh: "n. 羨慕；嫉妒（字首 e，字尾 y）" },
+      { lesson: "L05", type: "vocab", sentence: "11. The Smith family is moving into a new house tomorrow, so their living room is c______ded with boxes.", ans: "crowded", zh: "adj. 擠滿的；擁擠的（字首 c，字尾 ded）" },
+      { lesson: "L05", type: "vocab", sentence: "12. The singer performed her three newest songs in front of a c______d of excited fans.", ans: "crowd", zh: "n. 人群；群眾（字首 c，字尾 d）" },
+      { lesson: "L05", type: "vocab", sentence: "13. The little girl is wearing yellow shoes, a yellow dress, and has painted her nails yellow. O______y, she likes this color.", ans: "Obviously", zh: "adv. 明顯地（句首大寫 O，字尾 y）" },
+      { lesson: "L05", type: "vocab", sentence: "14. It was quite o______s to Carrie’s friends that she was in love with Mike because she couldn’t stop talking about him.", ans: "obvious", zh: "adj. 明顯的（字首 o，字尾 s）" },
+      { lesson: "L05", type: "vocab", sentence: "15. This shop sells a variety of health and food p______ts for babies.", ans: "products", zh: "n. 產品；製品（字首 p，字尾 ts）" },
+      { lesson: "L05", type: "vocab", sentence: "16. This company p______es more computers than any other company in the world.", ans: "produces", zh: "vt. 生產；製造（字首 p，字尾 es）" },
+      { lesson: "L05", type: "vocab", sentence: "17. Taiwan is known for the p______n of high-quality bicycles like those that are made by Giant.", ans: "production", zh: "n. 生產；製造（字首 p，字尾 n）" },
+      { lesson: "L05", type: "vocab", sentence: "18. Driving after you c______e too much beer or wine can lead to a car crash.", ans: "consume", zh: "vt. 喝；吃；飲用（字首 c，字尾 e）" },
+      { lesson: "L05", type: "vocab", sentence: "19. Finishing his assignments c______es most of Riley’s free time in the evening and on the weekend.", ans: "consumes", zh: "vt. 消耗；花費（時間）（字首 c，字尾 es）" },
+      { lesson: "L05", type: "vocab", sentence: "20. The study found that our city is the largest c______r of water in the country.", ans: "consumer", zh: "n. 消費者；消耗者（字首 c，字尾 r）" },
+      { lesson: "L05", type: "vocab", sentence: "21. Chocolate is delicious for most people, but did you know that it can be p______s to dogs?", ans: "poisonous", zh: "adj. 有毒的（字首 p，字尾 s）" },
+      { lesson: "L05", type: "vocab", sentence: "22. Andy tried to p______n the cockroaches in his apartment with a chemical he bought at the store, but it didn’t work.", ans: "poison", zh: "vt. 毒殺；下毒（字首 p，字尾 n）" },
+      { lesson: "L05", type: "vocab", sentence: "23. Nobody except for the scientists is allowed to enter the testing room because there are several deadly p______ns in there.", ans: "poisons", zh: "n. 毒藥；毒物（字首 p，字尾 ns）" },
+      { lesson: "L05", type: "vocab", sentence: "24. The rock star almost died after he took p______n by mistake; he thought it was a soft drink.", ans: "poison", zh: "n. 毒藥（字首 p，字尾 n）" },
+      { lesson: "L05", type: "vocab", sentence: "25. The police found a chemical s______e at the murder scene and are doing tests on it right now.", ans: "substance", zh: "n. 物質（字首 s，字尾 e）" },
+      { lesson: "L05", type: "vocab", sentence: "26. After the party, Nick took all the empty bottles out for r______g.", ans: "recycling", zh: "n. 回收利用（字首 r，字尾 g）" },
+      { lesson: "L05", type: "vocab", sentence: "27. Many people don’t realize that about 75% of the waste they produce can be r______ed.", ans: "recycled", zh: "vt. 回收利用（字首 r，字尾 ed）" },
+      { lesson: "L05", type: "vocab", sentence: "28. The cleaners were careful not to do any h______m to the objects in the museum as they cleaned around them.", ans: "harm", zh: "n. 傷害；損害（字首 h，字尾 m）" },
+      { lesson: "L05", type: "vocab", sentence: "29. Rebecca put the puppy down carefully in order not to h______m it.", ans: "harm", zh: "vt. 傷害（字首 h，字尾 m）" },
+      { lesson: "L05", type: "vocab", sentence: "30. Looking at the sun for too long is h______l to your eyes.", ans: "harmful", zh: "adj. 有害的（字首 h，字尾 l）" },
+      { lesson: "L05", type: "vocab", sentence: "31. It is every person’s responsibility to save the earth’s natural e______t for our sons and daughters.", ans: "environment", zh: "n. 自然環境（字首 e，字尾 t）" },
+      { lesson: "L05", type: "vocab", sentence: "32. All company owners should create a safe working e______t for their employees.", ans: "environment", zh: "n. 環境（字首 e，字尾 t）" },
+      { lesson: "L05", type: "vocab", sentence: "33. E______t plays a key role in the way humans develop and learn new things.", ans: "Environment", zh: "n. 環境（句首大寫 E，字尾 t）" },
+      { lesson: "L05", type: "vocab", sentence: "34. The president’s speech to the students will focus on e______l problems such as shrinking forests and climate change.", ans: "environmental", zh: "adj. 環境的（字首 e，字尾 l）" },
+      { lesson: "L05", type: "vocab", sentence: "35. Marc didn’t complete the assignment p______y, so the teacher asked him to do it again.", ans: "properly", zh: "adv. 適當地；正確地（字首 p，字尾 y）" },
+      { lesson: "L05", type: "vocab", sentence: "36. Silly jokes should only be told at the p______r place and time.", ans: "proper", zh: "adj. 適當的；合適的（字首 p，字尾 r）" },
+
+      // --- L05 Phrases (5) ---
+      { lesson: "L05", type: "phrase", sentence: "Jane said she’s not ready to join us yet, but she will ________ ________ later.", ans: "come along", zh: "Jane 說她還沒準備好要加入我們，但她待會就會到。（2字）" },
+      { lesson: "L05", type: "phrase", sentence: "After Mr. Huang got fired, he sadly ________ all of his things ________ and left.", ans: "packed up", zh: "在黃先生被解雇之後，他很難過地將他所有的東西打包後離開。（分開片語，請輸入 packed up）" },
+      { lesson: "L05", type: "phrase", sentence: "Lily loves to go fishing ________ ________ ________, so she can listen to the sound of the sea.", ans: "on her own", zh: "Lily 喜歡獨自去釣魚，這樣她才能聆聽大海的聲音。（3字）" },
+      { lesson: "L05", type: "phrase", sentence: "The lion hid behind a tree ________ ________ ________, waiting for a deer to walk by.", ans: "for a while", zh: "那隻獅子躲在樹後一陣子，等著鹿兒經過。（3字）" },
+      { lesson: "L05", type: "phrase", sentence: "The family couldn’t agree on a restaurant to go to, so they ________ ________ staying home and eating pizza.", ans: "ended up", zh: "這家人對於去哪家餐廳無法達成共識，所以他們最後就待在家裡吃披薩。（2字）" },
+
+      // --- L06 Vocabulary (32) ---
+      { lesson: "L06", type: "vocab", sentence: "1. After Simon turned eighteen, his parents gave him the f______m to watch any movies he wanted to.", ans: "freedom", zh: "n. 自由（字首 f，字尾 m）" },
+      { lesson: "L06", type: "vocab", sentence: "2. The island of Hainan in China has a 108-meter s______e of the goddess Kuanyin.", ans: "statue", zh: "n. 雕像（字首 s，字尾 e）" },
+      { lesson: "L06", type: "vocab", sentence: "3. Jasmine chewed gum to r______e the smell of garlic from her breath.", ans: "remove", zh: "vt. 去除；消除（字首 r，字尾 e）" },
+      { lesson: "L06", type: "vocab", sentence: "4. Yvonne invited her friends out for dinner in c______n of finishing all of their exams.", ans: "celebration", zh: "n. 慶祝（in celebration of 為了慶祝）（字首 c，字尾 n）" },
+      { lesson: "L06", type: "vocab", sentence: "5. Every October 10 our country holds a national c______n to remember an important event in our country’s history.", ans: "celebration", zh: "n. 慶典；慶祝活動（字首 c，字尾 n）" },
+      { lesson: "L06", type: "vocab", sentence: "6. The whole country c______ed when their team won the FIFA World Cup for the first time.", ans: "celebrated", zh: "vi. 慶祝（字首 c，字尾 ed）" },
+      { lesson: "L06", type: "vocab", sentence: "7. The couple gave sticky rice and red eggs to their friends and family members to c______e their son’s one-month birthday.", ans: "celebrate", zh: "vt. 慶祝（字首 c，字尾 e）" },
+      { lesson: "L06", type: "vocab", sentence: "8. India achieved i______e from the United Kingdom on August 15, 1947.", ans: "independence", zh: "n. 獨立（字首 i，字尾 e）" },
+      { lesson: "L06", type: "vocab", sentence: "9. The Philippines has been i______t from Spain for over 100 years, but about 3 million people there still speak Spanish.", ans: "independent", zh: "adj. 獨立的（字首 i，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "10. The m____________t was set up to remember Nelson Mandela as a great leader.", ans: "monument", zh: "n. 紀念碑（字首 m，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "11. In Beauty and the Beast, the dying rose s______es the Beast’s chance of becoming human again.", ans: "symbolizes", zh: "vt. 象徵（字首 s，字尾 es）" },
+      { lesson: "L06", type: "vocab", sentence: "12. In many cultures, the dove is regarded as a s______l of peace.", ans: "symbol", zh: "n. 象徵（字首 s，字尾 l）" },
+      { lesson: "L06", type: "vocab", sentence: "13. The fifty stars on the American flag are s______c of the country’s fifty states.", ans: "symbolic", zh: "adj. 象徵性的（字首 s，字尾 c）" },
+      { lesson: "L06", type: "vocab", sentence: "14. Jack f______y closed the lid of the jar so that it wouldn’t open accidentally.", ans: "firmly", zh: "adv. 緊緊地；牢固地（字首 f，字尾 y）" },
+      { lesson: "L06", type: "vocab", sentence: "15. The apples in the basket were all fresh, f______m, and perfect for making pie.", ans: "firm", zh: "adj. 結實的；堅硬的（字首 f，字尾 m）" },
+      { lesson: "L06", type: "vocab", sentence: "16. Sometimes Chinese speakers type “3Q” to r______t the words “thank you” because “3Q” sounds like “thank you” in Chinese.", ans: "represent", zh: "vt. 代表；象徵（字首 r，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "17. Roberto was chosen to r______t his class in the school performance because he is a good actor.", ans: "represent", zh: "vt. 代表（字首 r，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "18. Wendy didn’t like the r______n of women in the movie; all of them were shown as being quiet and weak.", ans: "representation", zh: "n. 描繪；表現（字首 r，字尾 n）" },
+      { lesson: "L06", type: "vocab", sentence: "19. The team created a small plastic r______n of the tower they were planning to build.", ans: "representation", zh: "n. 模型；象徵物（字首 r，字尾 n）" },
+      { lesson: "L06", type: "vocab", sentence: "20. The Great Wall was built thousands of years ago to stop a______t China’s enemies from invading.", ans: "ancient", zh: "adj. 古代的（字首 a，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "21. This book is about a girl who was sold into s______y and made to work on a farm for years.", ans: "slavery", zh: "n. 奴隸制度（字首 s，字尾 y）" },
+      { lesson: "L06", type: "vocab", sentence: "22. When Abraham Lincoln ended slavery in the US, many of his friends still owned s______es.", ans: "slaves", zh: "n. 奴隸（字首 s，字尾 es）" },
+      { lesson: "L06", type: "vocab", sentence: "23. Several players cheated during the game, so everybody agrees that the final score is u______r.", ans: "unfair", zh: "adj. 不公平的（字首 u，字尾 r）" },
+      { lesson: "L06", type: "vocab", sentence: "24. The prison was closed after many reports revealed the poor t______t of prisoners there.", ans: "treatment", zh: "n. 對待；待遇（字首 t，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "25. Mary and John went into the t______t center to ask for information about local hotels.", ans: "tourist", zh: "n. 觀光客（tourist center 遊客中心）（字首 t，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "26. T______m in the country grew sharply after it was chosen as this year’s best place to visit by a popular magazine.", ans: "Tourism", zh: "n. 觀光業；旅遊業（句首大寫 T，字尾 m）" },
+      { lesson: "L06", type: "vocab", sentence: "27. Beaches and water sports are the main a______ns in Kenting.", ans: "attractions", zh: "n. 景點；吸引人的事物（字首 a，字尾 ns）" },
+      { lesson: "L06", type: "vocab", sentence: "28. Famous sights such as the Eiffel Tower and Louvre Museum a______t over 30 million tourists to Paris every year.", ans: "attract", zh: "vt. 吸引（字首 a，字尾 t）" },
+      { lesson: "L06", type: "vocab", sentence: "29. Modern buildings are not a______e to Britney because she thinks they are seldom unique.", ans: "attractive", zh: "adj. 有吸引力的（字首 a，字尾 e）" },
+      { lesson: "L06", type: "vocab", sentence: "30. The Tokyo Tower and the Tokyo Skytree are two of Japan’s most famous l______ks.", ans: "landmarks", zh: "n. 地標（字首 l，字尾 ks）" },
+      { lesson: "L06", type: "vocab", sentence: "31. Many of David Bowie’s fans around the g______e posted images or words on Facebook and Instagram in memory of him after he died on January 10, 2016.", ans: "globe", zh: "n. 地球；世界（around the globe 全世界）（字首 g，字尾 e）" },
+      { lesson: "L06", type: "vocab", sentence: "32. Many people believe that g______l warming is causing a higher number of large storms such as typhoons.", ans: "global", zh: "adj. 全球的（global warming 全球暖化）（字首 g，字尾 l）" },
+
+      // --- L06 Phrases (5) ---
+      { lesson: "L06", type: "phrase", sentence: "Kyle knows all the words to this song ________ ________ he has only heard it a few times before.", ans: "even though", zh: "儘管以前只聽過這首歌幾次，Kyle 知道所有的歌詞。（2字）" },
+      { lesson: "L06", type: "phrase", sentence: "During the performance, ________ ________ two thousand people sang along with the band and created an unforgettable memory together.", ans: "close to", zh: "在表演期間，將近兩千人跟著樂團一同歌唱，一起創造了難忘的回憶。（2字）" },
+      { lesson: "L06", type: "phrase", sentence: "Janice found the math class really tough at first, but it became easier ________ ________.", ans: "over time", zh: "Janice 一開始認為數學課很難，但隨著時間過去，它變得較簡單。（2字）" },
+      { lesson: "L06", type: "phrase", sentence: "Tracy decided to ________ ________ ________ ________ Big Ben while she was on a business trip in London.", ans: "pay a visit to", zh: "Tracy 決定去倫敦出差時參觀大笨鐘。（4字）" },
+      { lesson: "L06", type: "phrase", sentence: "The noodle shop has a long line of people outside ________ ________ because they make the best noodles in town.", ans: "as always", zh: "一直以來，這家麵店外面都有著長長的人龍，因為他們做的麵是鎮上最棒的。（2字）" }
+    ];
+
+    // =========================================================================
+    // 4. 全域狀態管理與 localStorage 持久化
+    // =========================================================================
+    const STORAGE_KEY_STARS = "hs_eng_midterm_starred_ids_v1";
+
+    let state = {
+      activeTab: "flashcard",
+      unitFilter: "ALL",       // ALL, U5, U6, U7, U8, U9
+      onlyStarred: false,
+      starredIds: new Set(),
+
+      // 單字卡狀態
+      fcList: [...CORE_VOCAB],
+      fcIndex: 0,
+      isFlipped: false,
+
+      // 四選一測驗狀態
+      quizMode: "vocab",       // 'vocab' | 'exam'
+      quizScore: 0,
+      quizStreak: 0,
+      quizCount: 0,
+      currentQuiz: null,
+      quizAnswered: false,
+      examPoolIndex: 0,
+      examPool: [],
+
+      // 課本例句填空狀態
+      clozeLesson: "ALL",      // ALL, L04, L05, L06
+      clozeType: "ALL",        // ALL, vocab, phrase
+      clozeFiltered: [...CLOZE_ITEMS],
+      clozeIndex: 0
+    };
+
+    // 從 localStorage 載入星號收藏
+    function loadStarredFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_STARS);
+        if (raw) {
+          const arr = JSON.parse(raw);
+          if (Array.isArray(arr)) {
+            state.starredIds = new Set(arr);
+          }
+        }
+      } catch (e) {
+        console.warn("讀取收藏紀錄失敗:", e);
+      }
+      updateStarBadgeUI();
+    }
+
+    function saveStarredToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEY_STARS, JSON.stringify([...state.starredIds]));
+      } catch (e) {
+        console.warn("儲存收藏紀錄失敗:", e);
+      }
+      updateStarBadgeUI();
+    }
+
+    function updateStarBadgeUI() {
+      document.getElementById("star-count-badge").textContent = state.starredIds.size;
+      const btn = document.getElementById("global-star-toggle");
+      const icon = document.getElementById("global-star-icon");
+      if (state.onlyStarred) {
+        btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all active:scale-95 bg-amber-400 text-slate-900 border-amber-500 shadow-xs";
+        icon.textContent = "★";
+      } else {
+        btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all active:scale-95 bg-slate-100 text-slate-600 border-slate-200";
+        icon.textContent = "☆";
+      }
+    }
+
+    // 輕量提示框（取代 alert）
+    let toastTimer = null;
+    function showToast(msg) {
+      const box = document.getElementById("toast-box");
+      const text = document.getElementById("toast-msg");
+      text.textContent = msg;
+      box.classList.remove("opacity-0", "translate-y-0");
+      box.classList.add("opacity-100", "translate-y-1");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        box.classList.remove("opacity-100", "translate-y-1");
+        box.classList.add("opacity-0");
+      }, 1800);
+    }
+
+    // =========================================================================
+    // 5. Web Speech API 真人發音模組
+    // =========================================================================
+    function speakText(text) {
+      if (!("speechSynthesis" in window)) {
+        showToast("您的瀏覽器不支援語音朗讀功能");
+        return;
+      }
+      try {
+        window.speechSynthesis.cancel();
+        // 清理填空底線避免唸出 underscore
+        const cleanText = text.replace(/_+/g, " blank ");
+        const utter = new SpeechSynthesisUtterance(cleanText);
+        utter.lang = "en-US";
+        utter.rate = 0.92;
+        utter.pitch = 1.0;
+
+        // 優先挑選美式英語語音
+        const voices = window.speechSynthesis.getVoices();
+        const enVoice = voices.find(v => v.lang === "en-US" && v.name.includes("Google"))
+                     || voices.find(v => v.lang === "en-US")
+                     || voices.find(v => v.lang.startsWith("en"));
+        if (enVoice) utter.voice = enVoice;
+
+        window.speechSynthesis.speak(utter);
+      } catch (err) {
+        console.error("TTS 錯誤:", err);
+      }
+    }
+
+    // 預載語音清單
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
+    // =========================================================================
+    // 6. 分頁切換與篩選控制
+    // =========================================================================
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+      const views = ["flashcard", "quiz", "cloze", "list"];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const nav = document.getElementById(`nav-${v}`);
+        if (v === tabName) {
+          el.classList.remove("hidden");
+          nav.className = "nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-indigo-600 bg-indigo-50/90 font-bold transition";
+        } else {
+          el.classList.add("hidden");
+          nav.className = "nav-btn flex flex-col items-center justify-center py-1.5 rounded-xl text-slate-500 hover:text-slate-800 font-medium transition";
+        }
+      });
+
+      // 課本填空頁面隱藏 U5-U9 單元篩選列，其他頁面顯示
+      const filterBar = document.getElementById("unit-filter-bar");
+      if (tabName === "cloze") {
+        filterBar.classList.add("hidden");
+      } else {
+        filterBar.classList.remove("hidden");
+      }
+
+      if (tabName === "flashcard") renderFlashcard();
+      if (tabName === "quiz" && !state.currentQuiz) generateNextQuiz();
+      if (tabName === "cloze") renderCloze();
+      if (tabName === "list") renderWordList();
+    }
+
+    function setUnitFilter(unit) {
+      state.unitFilter = unit;
+      document.querySelectorAll(".unit-chip").forEach(btn => {
+        if (btn.dataset.unit === unit) {
+          btn.className = "unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-600 text-white shadow-xs transition";
+        } else {
+          btn.className = "unit-chip shrink-0 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition";
+        }
+      });
+      applyFiltersAndRefresh();
+    }
+
+    function toggleStarFilter(forceVal) {
+      state.onlyStarred = typeof forceVal === "boolean" ? forceVal : !state.onlyStarred;
+      updateStarBadgeUI();
+      applyFiltersAndRefresh();
+      showToast(state.onlyStarred ? "★ 已切換為「只看星號收藏」" : "已顯示全部單字範圍");
+    }
+
+    function getFilteredCoreVocab() {
+      return CORE_VOCAB.filter(item => {
+        const matchUnit = state.unitFilter === "ALL" || item.unit === state.unitFilter;
+        const matchStar = !state.onlyStarred || state.starredIds.has(item.id);
+        return matchUnit && matchStar;
+      });
+    }
+
+    function applyFiltersAndRefresh() {
+      state.fcList = getFilteredCoreVocab();
+      state.fcIndex = 0;
+      state.isFlipped = false;
+
+      if (state.activeTab === "flashcard") renderFlashcard();
+      if (state.activeTab === "quiz") generateNextQuiz();
+      if (state.activeTab === "list") renderWordList();
+    }
+
+    // =========================================================================
+    // 7. 單字卡模式邏輯
+    // =========================================================================
+    function renderFlashcard() {
+      const emptyEl = document.getElementById("fc-empty");
+      const wrapperEl = document.getElementById("fc-card-wrapper");
+      const navEl = document.getElementById("fc-nav-controls");
+      const counterEl = document.getElementById("fc-counter");
+      const barEl = document.getElementById("fc-progress-bar");
+
+      if (state.fcList.length === 0) {
+        emptyEl.classList.remove("hidden");
+        wrapperEl.classList.add("hidden");
+        navEl.classList.add("hidden");
+        counterEl.textContent = "0 / 0";
+        barEl.style.width = "0%";
+        return;
+      }
+
+      emptyEl.classList.add("hidden");
+      wrapperEl.classList.remove("hidden");
+      navEl.classList.remove("hidden");
+
+      if (state.fcIndex >= state.fcList.length) state.fcIndex = 0;
+      const item = state.fcList[state.fcIndex];
+
+      // 翻面狀態同步
+      const inner = document.getElementById("fc-card-inner");
+      if (state.isFlipped) {
+        inner.classList.add("rotate-y-180");
+      } else {
+        inner.classList.remove("rotate-y-180");
+      }
+
+      // 填入正面與背面資料
+      document.getElementById("fc-unit-badge").textContent = `核單 ${item.unit}`;
+      document.getElementById("fc-pos").textContent = item.pos;
+      document.getElementById("fc-word").textContent = item.word;
+
+      document.getElementById("fc-back-word").textContent = item.word;
+      document.getElementById("fc-back-pos").textContent = item.pos;
+      document.getElementById("fc-meaning").textContent = item.meaning;
+      document.getElementById("fc-sentence").textContent = item.en;
+      document.getElementById("fc-translation").textContent = item.zh;
+
+      // 星號按鈕樣式
+      const isStar = state.starredIds.has(item.id);
+      const starBtn = document.getElementById("fc-star-btn");
+      starBtn.textContent = isStar ? "★" : "☆";
+      starBtn.className = isStar
+        ? "w-10 h-10 rounded-full flex items-center justify-center text-2xl transition active:scale-90 bg-amber-100 text-amber-500 shadow-xs"
+        : "w-10 h-10 rounded-full flex items-center justify-center text-2xl transition active:scale-90 bg-slate-100 text-slate-400 hover:bg-amber-50";
+
+      // 進度更新
+      counterEl.textContent = `${state.fcIndex + 1} / ${state.fcList.length}`;
+      const pct = Math.round(((state.fcIndex + 1) / state.fcList.length) * 100);
+      barEl.style.width = `${pct}%`;
+    }
+
+    function flipCard(e) {
+      state.isFlipped = !state.isFlipped;
+      const inner = document.getElementById("fc-card-inner");
+      inner.classList.toggle("rotate-y-180", state.isFlipped);
+    }
+
+    function prevCard() {
+      if (state.fcList.length === 0) return;
+      state.isFlipped = false;
+      state.fcIndex = (state.fcIndex - 1 + state.fcList.length) % state.fcList.length;
+      renderFlashcard();
+    }
+
+    function nextCard() {
+      if (state.fcList.length === 0) return;
+      state.isFlipped = false;
+      state.fcIndex = (state.fcIndex + 1) % state.fcList.length;
+      renderFlashcard();
+    }
+
+    function shuffleFlashcards() {
+      if (state.fcList.length <= 1) return;
+      for (let i = state.fcList.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [state.fcList[i], state.fcList[j]] = [state.fcList[j], state.fcList[i]];
+      }
+      state.fcIndex = 0;
+      state.isFlipped = false;
+      renderFlashcard();
+      showToast("🔀 已隨機洗牌單字順序");
+    }
+
+    function resetFlashcardOrder() {
+      state.fcList = getFilteredCoreVocab();
+      state.fcIndex = 0;
+      state.isFlipped = false;
+      renderFlashcard();
+      showToast("↺ 已恢復單元順序");
+    }
+
+    function toggleCurrentCardStar(e) {
+      e.stopPropagation();
+      if (state.fcList.length === 0) return;
+      const item = state.fcList[state.fcIndex];
+      toggleWordStarById(item.id);
+    }
+
+    function speakCurrentWord(e) {
+      e.stopPropagation();
+      if (state.fcList.length === 0) return;
+      speakText(state.fcList[state.fcIndex].word);
+    }
+
+    function speakCurrentSentence(e) {
+      e.stopPropagation();
+      if (state.fcList.length === 0) return;
+      speakText(state.fcList[state.fcIndex].en);
+    }
+
+    // =========================================================================
+    // 8. 四選一測驗模式邏輯 (核心單字中義 + 核單考卷 11-20 題)
+    // =========================================================================
+    function setQuizMode(mode) {
+      state.quizMode = mode;
+      const btnVocab = document.getElementById("quiz-sub-vocab");
+      const btnExam = document.getElementById("quiz-sub-exam");
+      if (mode === "vocab") {
+        btnVocab.className = "py-2 px-3 rounded-xl text-xs font-bold bg-white text-indigo-700 shadow-xs transition";
+        btnExam.className = "py-2 px-3 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+      } else {
+        btnExam.className = "py-2 px-3 rounded-xl text-xs font-bold bg-white text-indigo-700 shadow-xs transition";
+        btnVocab.className = "py-2 px-3 rounded-xl text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+      }
+      generateNextQuiz();
+    }
+
+    function resetQuizStats() {
+      state.quizScore = 0;
+      state.quizStreak = 0;
+      state.quizCount = 0;
+      updateQuizScoreUI();
+      generateNextQuiz();
+      showToast("已重置測驗分數");
+    }
+
+    function updateQuizScoreUI() {
+      document.getElementById("quiz-score").textContent = state.quizScore;
+      document.getElementById("quiz-streak").textContent = `${state.quizStreak} 🔥`;
+      document.getElementById("quiz-progress-label").textContent = `已作答 ${state.quizCount} 題`;
+    }
+
+    function generateNextQuiz() {
+      state.quizAnswered = false;
+      const feedbackEl = document.getElementById("quiz-feedback");
+      const nextBtn = document.getElementById("quiz-next-btn");
+      feedbackEl.classList.add("hidden");
+      nextBtn.classList.add("hidden");
+
+      if (state.quizMode === "vocab") {
+        // 核心單字中義四選一
+        let pool = getFilteredCoreVocab();
+        if (pool.length === 0) pool = [...CORE_VOCAB]; // 若收藏為空則退回全部題庫避免無法出題
+
+        const target = pool[Math.floor(Math.random() * pool.length)];
+        // 挑選 3 個不同單字的中文解釋作為干擾項
+        const distractors = CORE_VOCAB
+          .filter(w => w.id !== target.id)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+
+        const options = [target, ...distractors].sort(() => Math.random() - 0.5);
+        const correctIndex = options.findIndex(o => o.id === target.id);
+
+        state.currentQuiz = {
+          type: "vocab",
+          badge: `核單 ${target.unit} ‧ ${target.pos}`,
+          prompt: target.word,
+          sub: "請選出最正確的中文解釋：",
+          speakStr: target.word,
+          options: options.map((o, idx) => `(${String.fromCharCode(65 + idx)}) ${o.meaning}`),
+          correctIndex,
+          detail: `【${target.word}】(${target.pos}) ${target.meaning}\n例句：${target.en}（${target.zh}）`
+        };
+      } else {
+        // 核單 U5-U9 考卷第 11-20 題
+        let examPool = EXAM_QUESTIONS.filter(q => state.unitFilter === "ALL" || q.unit === state.unitFilter);
+        if (examPool.length === 0) examPool = [...EXAM_QUESTIONS];
+
+        const qItem = examPool[Math.floor(Math.random() * examPool.length)];
+        const fullCleanSentence = qItem.q.replace(/_+/g, qItem.opts[qItem.ans].replace(/^\([A-D]\)\s*/, ""));
+
+        state.currentQuiz = {
+          type: "exam",
+          badge: `核單 ${qItem.unit} 考卷 ‧ 第 ${qItem.num} 題`,
+          prompt: qItem.q,
+          sub: "請選出最適當的字彙或片語填入空格：",
+          speakStr: fullCleanSentence,
+          options: qItem.opts,
+          correctIndex: qItem.ans,
+          detail: `正確答案：${qItem.opts[qItem.ans]}\n解析：${qItem.exp}`
+        };
+      }
+
+      renderQuizUI();
+    }
+
+    function renderQuizUI() {
+      const q = state.currentQuiz;
+      document.getElementById("quiz-badge").textContent = q.badge;
+
+      const qTextEl = document.getElementById("quiz-question-text");
+      qTextEl.textContent = q.prompt;
+      if (q.type === "vocab") {
+        qTextEl.className = "text-3xl font-extrabold text-slate-900 leading-snug";
+      } else {
+        qTextEl.className = "text-base font-bold text-slate-900 leading-relaxed";
+      }
+
+      document.getElementById("quiz-question-sub").textContent = q.sub;
+
+      const optionsBox = document.getElementById("quiz-options");
+      optionsBox.innerHTML = "";
+      q.options.forEach((optText, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "quiz-opt-btn w-full text-left px-4 py-3.5 rounded-2xl border-2 border-slate-200 bg-slate-50/60 hover:bg-indigo-50/60 hover:border-indigo-300 text-sm font-semibold text-slate-800 transition active:scale-[0.99]";
+        btn.textContent = optText;
+        btn.onclick = () => handleQuizSelect(idx);
+        optionsBox.appendChild(btn);
+      });
+    }
+
+    function handleQuizSelect(selectedIdx) {
+      if (state.quizAnswered) return;
+      state.quizAnswered = true;
+      state.quizCount++;
+
+      const q = state.currentQuiz;
+      const isCorrect = selectedIdx === q.correctIndex;
+
+      if (isCorrect) {
+        state.quizScore += 10;
+        state.quizStreak++;
+      } else {
+        state.quizStreak = 0;
+      }
+      updateQuizScoreUI();
+
+      // 標示按鈕對錯顏色
+      const btns = document.querySelectorAll(".quiz-opt-btn");
+      btns.forEach((btn, idx) => {
+        btn.disabled = true;
+        if (idx === q.correctIndex) {
+          btn.className = "quiz-opt-btn w-full text-left px-4 py-3.5 rounded-2xl border-2 border-emerald-500 bg-emerald-50 text-sm font-extrabold text-emerald-900 transition";
+        } else if (idx === selectedIdx && !isCorrect) {
+          btn.className = "quiz-opt-btn w-full text-left px-4 py-3.5 rounded-2xl border-2 border-rose-500 bg-rose-50 text-sm font-bold text-rose-900 transition";
+        } else {
+          btn.className = "quiz-opt-btn w-full text-left px-4 py-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-sm text-slate-400 opacity-70";
+        }
+      });
+
+      // 顯示答題回饋
+      const fbBox = document.getElementById("quiz-feedback");
+      const fbTitle = document.getElementById("quiz-feedback-title");
+      const fbDetail = document.getElementById("quiz-feedback-detail");
+
+      fbBox.classList.remove("hidden");
+      if (isCorrect) {
+        fbBox.className = "rounded-2xl p-3.5 text-xs space-y-1.5 border border-emerald-200 bg-emerald-50/80";
+        fbTitle.className = "font-extrabold text-sm text-emerald-800";
+        fbTitle.textContent = "🎉 答對了！+10 分";
+      } else {
+        fbBox.className = "rounded-2xl p-3.5 text-xs space-y-1.5 border border-rose-200 bg-rose-50/80";
+        fbTitle.className = "font-extrabold text-sm text-rose-800";
+        fbTitle.textContent = "❌ 答錯囉！請看正確解析：";
+      }
+      fbDetail.innerText = q.detail;
+
+      document.getElementById("quiz-next-btn").classList.remove("hidden");
+    }
+
+    function speakQuizPrompt() {
+      if (state.currentQuiz) {
+        speakText(state.currentQuiz.speakStr);
+      }
+    }
+
+    // =========================================================================
+    // 9. 課本例句與片語填空模式邏輯 (L04-L06)
+    // =========================================================================
+    function setClozeLesson(lesson) {
+      state.clozeLesson = lesson;
+      document.querySelectorAll(".cloze-lesson-btn").forEach(btn => {
+        if (btn.dataset.lesson === lesson) {
+          btn.className = "cloze-lesson-btn py-1.5 rounded-xl text-xs font-bold bg-indigo-600 text-white";
+        } else {
+          btn.className = "cloze-lesson-btn py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600";
+        }
+      });
+      filterClozeList();
+    }
+
+    function setClozeType(ctype) {
+      state.clozeType = ctype;
+      document.querySelectorAll(".cloze-type-btn").forEach(btn => {
+        if (btn.dataset.ctype === ctype) {
+          btn.className = "cloze-type-btn flex-1 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-white";
+        } else {
+          btn.className = "cloze-type-btn flex-1 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600";
+        }
+      });
+      filterClozeList();
+    }
+
+    function filterClozeList() {
+      state.clozeFiltered = CLOZE_ITEMS.filter(item => {
+        const matchL = state.clozeLesson === "ALL" || item.lesson === state.clozeLesson;
+        const matchT = state.clozeType === "ALL" || item.type === state.clozeType;
+        return matchL && matchT;
+      });
+      state.clozeIndex = 0;
+      renderCloze();
+    }
+
+    function renderCloze() {
+      const list = state.clozeFiltered;
+      if (list.length === 0) return;
+      if (state.clozeIndex >= list.length) state.clozeIndex = 0;
+
+      const item = list[state.clozeIndex];
+      document.getElementById("cloze-counter").textContent = `${state.clozeIndex + 1} / ${list.length}`;
+      document.getElementById("cloze-lesson-badge").textContent = `龍騰 ${item.lesson}`;
+      document.getElementById("cloze-type-badge").textContent = item.type === "vocab" ? "課本字彙填空" : "課本片語填空";
+      document.getElementById("cloze-zh-text").textContent = item.zh;
+
+      // 將底線提示高亮顯示
+      const formattedEn = item.sentence.replace(/([a-zA-Z]?_{2,}[a-zA-Z]*(\s+_{2,})*)/g,
+        '<span class="text-indigo-600 font-extrabold bg-indigo-50 px-1.5 py-0.5 rounded underline decoration-2 underline-offset-4">$1</span>'
+      );
+      document.getElementById("cloze-en-text").innerHTML = formattedEn;
+
+      const inputEl = document.getElementById("cloze-input");
+      inputEl.value = "";
+      document.getElementById("cloze-result").classList.add("hidden");
+    }
+
+    function checkClozeAnswer() {
+      const item = state.clozeFiltered[state.clozeIndex];
+      const userVal = document.getElementById("cloze-input").value.trim().replace(/\s+/g, " ");
+      const resBox = document.getElementById("cloze-result");
+      const resTitle = document.getElementById("cloze-result-title");
+      const resAns = document.getElementById("cloze-result-answer");
+
+      if (!userVal) {
+        showToast("請先輸入答案再檢查喔！");
+        return;
+      }
+
+      const isCorrect = userVal.toLowerCase() === item.ans.toLowerCase();
+      resBox.classList.remove("hidden");
+      if (isCorrect) {
+        resBox.className = "rounded-2xl p-3.5 text-xs border border-emerald-200 bg-emerald-50 space-y-1";
+        resTitle.className = "font-extrabold text-sm text-emerald-800";
+        resTitle.textContent = "✅ 完全正確！太棒了！";
+        resAns.textContent = `標準答案：${item.ans}`;
+      } else {
+        resBox.className = "rounded-2xl p-3.5 text-xs border border-rose-200 bg-rose-50 space-y-1";
+        resTitle.className = "font-extrabold text-sm text-rose-800";
+        resTitle.textContent = "❌ 拼字或大小寫有誤，再試試看！";
+        resAns.textContent = `你的作答：「${userVal}」 ｜ 正確答案：${item.ans}`;
+      }
+    }
+
+    function revealClozeAnswer() {
+      const item = state.clozeFiltered[state.clozeIndex];
+      const inputEl = document.getElementById("cloze-input");
+      inputEl.value = item.ans;
+
+      const resBox = document.getElementById("cloze-result");
+      const resTitle = document.getElementById("cloze-result-title");
+      const resAns = document.getElementById("cloze-result-answer");
+
+      resBox.classList.remove("hidden");
+      resBox.className = "rounded-2xl p-3.5 text-xs border border-amber-200 bg-amber-50 space-y-1";
+      resTitle.className = "font-extrabold text-sm text-amber-800";
+      resTitle.textContent = "💡 解答提示";
+      resAns.textContent = `正確答案為：${item.ans}`;
+    }
+
+    function speakClozeFullSentence() {
+      const item = state.clozeFiltered[state.clozeIndex];
+      // 還原完整英文句子並朗讀
+      let fullSent = item.sentence.replace(/^\d+\.\s*/, "");
+      if (item.type === "vocab") {
+        fullSent = fullSent.replace(/[a-zA-Z]?_{2,}[a-zA-Z]*/, item.ans);
+      } else {
+        fullSent = fullSent.replace(/_{2,}(\s+_{2,})*/, item.ans);
+      }
+      speakText(fullSent);
+    }
+
+    function prevCloze() {
+      const len = state.clozeFiltered.length;
+      state.clozeIndex = (state.clozeIndex - 1 + len) % len;
+      renderCloze();
+    }
+
+    function nextCloze() {
+      const len = state.clozeFiltered.length;
+      state.clozeIndex = (state.clozeIndex + 1) % len;
+      renderCloze();
+    }
+
+    function randomCloze() {
+      const len = state.clozeFiltered.length;
+      state.clozeIndex = Math.floor(Math.random() * len);
+      renderCloze();
+    }
+
+    // =========================================================================
+    // 10. 單字列表與星號收藏邏輯
+    // =========================================================================
+    function toggleWordStarById(id) {
+      if (state.starredIds.has(id)) {
+        state.starredIds.delete(id);
+        showToast("已取消星號收藏");
+      } else {
+        state.starredIds.add(id);
+        showToast("★ 已加入星號收藏");
+      }
+      saveStarredToStorage();
+
+      if (state.activeTab === "flashcard") {
+        if (state.onlyStarred) {
+          state.fcList = getFilteredCoreVocab();
+        }
+        renderFlashcard();
+      }
+      if (state.activeTab === "list") {
+        renderWordList();
+      }
+    }
+
+    function clearAllStarsConfirm() {
+      if (state.starredIds.size === 0) {
+        showToast("目前沒有任何收藏紀錄");
+        return;
+      }
+      state.starredIds.clear();
+      saveStarredToStorage();
+      applyFiltersAndRefresh();
+      showToast("已清除全部星號收藏");
+    }
+
+    function renderWordList() {
+      const container = document.getElementById("word-list-container");
+      const query = document.getElementById("list-search-input").value.trim().toLowerCase();
+
+      const filtered = getFilteredCoreVocab().filter(item => {
+        if (!query) return true;
+        return item.word.toLowerCase().includes(query)
+            || item.meaning.toLowerCase().includes(query)
+            || item.pos.toLowerCase().includes(query);
+      });
+
+      document.getElementById("list-count-label").textContent = `顯示 ${filtered.length} 個核心單字`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-slate-200 text-slate-500 text-xs space-y-2">
+            <div class="text-3xl">📭</div>
+            <p class="font-bold text-slate-700 text-sm">找不到符合條件的單字</p>
+            <p>請嘗試切換單元範圍、取消「只看收藏」或清除搜尋關鍵字。</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isStar = state.starredIds.has(item.id);
+        return `
+          <div class="bg-white rounded-2xl p-4 border ${isStar ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'} shadow-xs space-y-2">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-lg font-extrabold text-slate-900">${item.word}</span>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">${item.pos}</span>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">${item.unit}</span>
+                </div>
+                <p class="text-sm font-bold text-indigo-950 mt-1">${item.meaning}</p>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="speakText('${item.word.replace(/'/g, "\\'")}')" class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center text-sm active:scale-90 transition" title="發音">
+                  🔊
+                </button>
+                <button onclick="toggleWordStarById('${item.id}')" class="w-9 h-9 rounded-xl ${isStar ? 'bg-amber-100 text-amber-500' : 'bg-slate-100 text-slate-400'} flex items-center justify-center text-lg active:scale-90 transition" title="星號收藏">
+                  ${isStar ? '★' : '☆'}
+                </button>
+              </div>
+            </div>
+            <div class="text-xs text-slate-600 bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-0.5">
+              <p class="font-medium text-slate-800">${item.en}</p>
+              <p class="text-slate-500">${item.zh}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // =========================================================================
+    // 11. 初始化啟動
+    // =========================================================================
+    window.addEventListener("DOMContentLoaded", () => {
+      loadStarredFromStorage();
+      renderFlashcard();
+      generateNextQuiz();
+      renderCloze();
+      renderWordList();
+    });
+  </script>
+</body>
+</html>
